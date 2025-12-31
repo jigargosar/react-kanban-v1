@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import * as Dnd from './Dnd'
-import { sampleBoard, type Card, type ColumnId, getColumnCards, positionBetween, loadCards, saveCards } from './model'
+import { sampleBoard, type Card, type ColumnId, getColumnCards, positionBetween } from './model'
+import { fetchBoard, persistCard, resetAll } from './api'
 
 function CardView({ card, isDragging }: { card: Card; isDragging?: boolean }) {
   return (
@@ -128,7 +129,7 @@ function ColumnView({
 }
 
 function App() {
-  const [cards, setCards] = useState(() => loadCards() ?? sampleBoard.cards)
+  const [cards, setCards] = useState(() => fetchBoard() ?? sampleBoard.cards)
   const [columns] = useState(sampleBoard.columns)
 
   const columnIds = columns.map(c => c.id)
@@ -144,11 +145,8 @@ function App() {
       columnId,
       position: positionBetween(lastPosition, null),
     }
-    setCards((prev) => {
-      const next = { ...prev, [cardId]: newCard }
-      saveCards(next)
-      return next
-    })
+    persistCard(newCard)
+    setCards((prev) => ({ ...prev, [cardId]: newCard }))
   }
 
   const handleMove = ({ itemId, toGroupId, toIndex }: Dnd.MoveInfo) => {
@@ -168,9 +166,9 @@ function App() {
     })
   }
 
-  const handleMoveEnd = useCallback(() => {
+  const handleMoveEnd = useCallback(({ itemId }: Dnd.MoveInfo) => {
     setCards((current) => {
-      saveCards(current)
+      persistCard(current[itemId])
       return current
     })
   }, [])
@@ -185,8 +183,17 @@ function App() {
       onMoveEnd={handleMoveEnd}
     >
       <div className="h-screen bg-gray-900 flex flex-col overflow-hidden select-none">
-        <header className="p-8 pb-0">
-          <h1 className="text-2xl font-bold text-gray-100 mb-6">Kanban Board</h1>
+        <header className="p-8 pb-0 flex items-center gap-4">
+          <h1 className="text-2xl font-bold text-gray-100">Kanban Board</h1>
+          <button
+            onClick={() => {
+              resetAll()
+              setCards(sampleBoard.cards)
+            }}
+            className="text-sm text-gray-400 hover:text-gray-200 px-3 py-1 rounded hover:bg-gray-700"
+          >
+            Reset
+          </button>
         </header>
         <div className="flex-1 overflow-x-auto overflow-y-hidden p-8 pt-0">
           <div className="flex gap-4 h-full">
