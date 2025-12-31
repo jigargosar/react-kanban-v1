@@ -164,6 +164,11 @@ function App() {
     })
   }
 
+  const handleMoveEnd = ({ itemId, toGroupId, toIndex }: Dnd.MoveInfo) => {
+    console.log('onMoveEnd', { itemId, toGroupId, toIndex })
+    // TODO: persist to Supabase
+  }
+
   return (
     <Dnd.Provider
       groups={columnIds}
@@ -171,6 +176,7 @@ function App() {
       getId={(card) => card.id}
       getGroupId={(card) => card.columnId}
       onMove={handleMove}
+      onMoveEnd={handleMoveEnd}
     >
       <div className="h-screen bg-gray-900 flex flex-col overflow-hidden select-none">
         <header className="p-8 pb-0">

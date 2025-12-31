@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useRef } from 'react'
 import { DragDropProvider, useDroppable } from '@dnd-kit/react'
 import { useSortable } from '@dnd-kit/react/sortable'
 import { CollisionPriority } from '@dnd-kit/abstract'
@@ -19,6 +20,7 @@ type ProviderProps<T> = {
   getId: (item: T) => ItemId
   getGroupId: (item: T) => GroupId
   onMove: (info: MoveInfo) => void
+  onMoveEnd?: (info: MoveInfo) => void
 }
 
 export function Provider<T>({
@@ -28,9 +30,13 @@ export function Provider<T>({
   getId,
   getGroupId,
   onMove,
+  onMoveEnd,
 }: ProviderProps<T>) {
   // Build lookup maps from items
   const itemById = new Map(items.map(item => [getId(item), item]))
+
+  // Track last move for onMoveEnd
+  const lastMoveRef = useRef<MoveInfo | null>(null)
 
   const getItemGroup = (itemId: ItemId): GroupId | undefined => {
     const item = itemById.get(itemId)
@@ -74,7 +80,15 @@ export function Provider<T>({
         const currentIndex = getItemIndex(itemId)
         if (currentGroup === toGroupId && currentIndex === toIndex) return
 
-        onMove({ itemId, toGroupId, toIndex })
+        const moveInfo = { itemId, toGroupId, toIndex }
+        lastMoveRef.current = moveInfo
+        onMove(moveInfo)
+      }}
+      onDragEnd={() => {
+        if (lastMoveRef.current && onMoveEnd) {
+          onMoveEnd(lastMoveRef.current)
+        }
+        lastMoveRef.current = null
       }}
     >
       {children}
