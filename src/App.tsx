@@ -61,9 +61,9 @@ function ColumnView({
   const [isAdding, setIsAdding] = useState(false)
 
   return (
-    <div className="bg-gray-800 rounded-lg p-4 w-72 flex-shrink-0">
-      <h2 className="text-gray-100 font-semibold mb-4">{column.title}</h2>
-      <div className="flex flex-col gap-2">
+    <div className="bg-gray-800 rounded-lg w-72 flex-shrink-0 flex flex-col max-h-full">
+      <h2 className="text-gray-100 font-semibold p-4 pb-0">{column.title}</h2>
+      <div className="flex flex-col gap-2 overflow-y-auto flex-1 p-4">
         {cards.map((card) => (
           <CardView key={card.id} card={card} />
         ))}
@@ -104,17 +104,21 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 p-8">
-      <h1 className="text-2xl font-bold text-gray-100 mb-6">Kanban Board</h1>
-      <div className="flex gap-4 overflow-x-auto">
-        {board.columns.map((column) => (
-          <ColumnView
-            key={column.id}
-            column={column}
-            cards={column.cardIds.map((id) => board.cards[id])}
-            onAddCard={addCard}
-          />
-        ))}
+    <div className="h-screen bg-gray-900 flex flex-col overflow-hidden">
+      <header className="p-8 pb-0">
+        <h1 className="text-2xl font-bold text-gray-100 mb-6">Kanban Board</h1>
+      </header>
+      <div className="flex-1 overflow-x-auto overflow-y-hidden p-8 pt-0">
+        <div className="flex gap-4 h-full">
+          {board.columns.map((column) => (
+            <ColumnView
+              key={column.id}
+              column={column}
+              cards={column.cardIds.map((id) => board.cards[id])}
+              onAddCard={addCard}
+            />
+          ))}
+        </div>
       </div>
     </div>
   )
