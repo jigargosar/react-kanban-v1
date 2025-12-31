@@ -5,7 +5,7 @@ import { move } from '@dnd-kit/helpers'
 import { CollisionPriority } from '@dnd-kit/abstract'
 import { sampleBoard, type Card, type ColumnId } from './model'
 
-type Items = Record<ColumnId, string[]>
+type CardPositions = Record<ColumnId, string[]>
 
 function CardView({ card, isDragging }: { card: Card; isDragging?: boolean }) {
   return (
@@ -105,7 +105,7 @@ function ColumnView({
   })
 
   return (
-    <div className="bg-gray-800 rounded-lg w-72 flex-shrink-0 flex flex-col max-h-full">
+    <div className="bg-gray-800 rounded-lg w-72 shrink-0 flex flex-col max-h-full">
       <h2 className="text-gray-100 font-semibold p-4 pb-0">{title}</h2>
       <div
         ref={ref}
@@ -142,8 +142,8 @@ function ColumnView({
 function App() {
   const [cards, setCards] = useState(sampleBoard.cards)
   const [columns] = useState(sampleBoard.columns)
-  const [items, setItems] = useState<Items>(() => {
-    const result: Items = {}
+  const [cardPositions, setCardPositions] = useState<CardPositions>(() => {
+    const result: CardPositions = {}
     for (const col of sampleBoard.columns) {
       result[col.id] = col.cardIds
     }
@@ -155,7 +155,7 @@ function App() {
     const newCard: Card = { id: cardId, title }
 
     setCards((prev) => ({ ...prev, [cardId]: newCard }))
-    setItems((prev) => ({
+    setCardPositions((prev) => ({
       ...prev,
       [columnId]: [...prev[columnId], cardId],
     }))
@@ -164,7 +164,7 @@ function App() {
   return (
     <DragDropProvider
       onDragOver={(event) => {
-        setItems((items) => move(items, event))
+        setCardPositions((positions) => move(positions, event))
       }}
     >
       <div className="h-screen bg-gray-900 flex flex-col overflow-hidden select-none">
@@ -178,7 +178,7 @@ function App() {
                 key={column.id}
                 columnId={column.id}
                 title={column.title}
-                cardIds={items[column.id]}
+                cardIds={cardPositions[column.id]}
                 cards={cards}
                 onAddCard={addCard}
               />
