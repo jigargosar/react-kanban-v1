@@ -1,11 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { DragDropProvider, useDroppable } from '@dnd-kit/react'
 import { useSortable } from '@dnd-kit/react/sortable'
-import { move } from '@dnd-kit/helpers'
 import { CollisionPriority } from '@dnd-kit/abstract'
-import { sampleBoard, type Card, type ColumnId } from './model'
-
-type CardPositions = Record<ColumnId, string[]>
+import { sampleBoard, type Card, type ColumnId, getColumnCards, positionBetween } from './model'
 
 function CardView({ card, isDragging }: { card: Card; isDragging?: boolean }) {
   return (
@@ -86,14 +83,12 @@ function AddCardInput({
 function ColumnView({
   columnId,
   title,
-  cardIds,
-  cards,
+  columnCards,
   onAddCard,
 }: {
   columnId: ColumnId
   title: string
-  cardIds: string[]
-  cards: Record<string, Card>
+  columnCards: Card[]
   onAddCard: (columnId: ColumnId, title: string) => void
 }) {
   const [isAdding, setIsAdding] = useState(false)
@@ -111,10 +106,10 @@ function ColumnView({
         ref={ref}
         className="flex flex-col gap-2 overflow-y-auto flex-1 p-4"
       >
-        {cardIds.map((cardId, index) => (
+        {columnCards.map((card, index) => (
           <SortableCard
-            key={cardId}
-            card={cards[cardId]}
+            key={card.id}
+            card={card}
             columnId={columnId}
             index={index}
           />
@@ -142,29 +137,75 @@ function ColumnView({
 function App() {
   const [cards, setCards] = useState(sampleBoard.cards)
   const [columns] = useState(sampleBoard.columns)
-  const [cardPositions, setCardPositions] = useState<CardPositions>(() => {
-    const result: CardPositions = {}
-    for (const col of sampleBoard.columns) {
-      result[col.id] = col.cardIds
-    }
-    return result
-  })
 
   const addCard = (columnId: ColumnId, title: string) => {
     const cardId = crypto.randomUUID()
-    const newCard: Card = { id: cardId, title }
-
+    const columnCards = getColumnCards(cards, columnId)
+    const lastPosition = columnCards.length > 0 ? columnCards[columnCards.length - 1].position : null
+    const newCard: Card = {
+      id: cardId,
+      title,
+      columnId,
+      position: positionBetween(lastPosition, null),
+    }
     setCards((prev) => ({ ...prev, [cardId]: newCard }))
-    setCardPositions((prev) => ({
-      ...prev,
-      [columnId]: [...prev[columnId], cardId],
-    }))
+  }
+
+  const moveCard = (cardId: string, toColumnId: ColumnId, newIndex: number) => {
+    setCards((prev) => {
+      const columnCards = getColumnCards(prev, toColumnId).filter(c => c.id !== cardId)
+      const beforeCard = columnCards[newIndex - 1] ?? null
+      const afterCard = columnCards[newIndex] ?? null
+      const newPosition = positionBetween(
+        beforeCard?.position ?? null,
+        afterCard?.position ?? null
+      )
+
+      console.log('moveCard', { cardId, toColumnId, newIndex, newPosition })
+
+      return {
+        ...prev,
+        [cardId]: { ...prev[cardId], columnId: toColumnId, position: newPosition },
+      }
+    })
   }
 
   return (
     <DragDropProvider
       onDragOver={(event) => {
-        setCardPositions((positions) => move(positions, event))
+        const { source, target } = event.operation
+        if (!source || !target || event.operation.canceled) return
+
+        const cardId = source.id as string
+        const card = cards[cardId]
+        if (!card) return
+
+        // Determine target column and index
+        const isDropOnColumn = columns.some(c => c.id === target.id)
+        let toColumnId: ColumnId
+        let newIndex: number
+
+        if (isDropOnColumn) {
+          // Dropped on empty column area
+          toColumnId = target.id as ColumnId
+          newIndex = getColumnCards(cards, toColumnId).length
+        } else {
+          // Dropped on another card - get that card's column and position
+          const targetCard = cards[target.id as string]
+          if (!targetCard) return
+          toColumnId = targetCard.columnId
+          const targetColumnCards = getColumnCards(cards, toColumnId)
+          const targetIdx = targetColumnCards.findIndex(c => c.id === targetCard.id)
+          // Insert at target's position (target will shift down)
+          newIndex = targetIdx >= 0 ? targetIdx : targetColumnCards.length
+        }
+
+        // Only update if position actually changed
+        const currentColumnCards = getColumnCards(cards, card.columnId)
+        const currentIdx = currentColumnCards.findIndex(c => c.id === cardId)
+        if (card.columnId === toColumnId && currentIdx === newIndex) return
+
+        moveCard(cardId, toColumnId, newIndex)
       }}
     >
       <div className="h-screen bg-gray-900 flex flex-col overflow-hidden select-none">
@@ -178,8 +219,7 @@ function App() {
                 key={column.id}
                 columnId={column.id}
                 title={column.title}
-                cardIds={cardPositions[column.id]}
-                cards={cards}
+                columnCards={getColumnCards(cards, column.id)}
                 onAddCard={addCard}
               />
             ))}
