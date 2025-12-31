@@ -1,7 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { DragDropProvider, useDroppable } from '@dnd-kit/react'
-import { useSortable } from '@dnd-kit/react/sortable'
-import { CollisionPriority } from '@dnd-kit/abstract'
+import * as Dnd from './Dnd'
 import { sampleBoard, type Card, type ColumnId, getColumnCards, positionBetween } from './model'
 
 function CardView({ card, isDragging }: { card: Card; isDragging?: boolean }) {
@@ -25,17 +23,14 @@ function SortableCard({
   columnId: ColumnId
   index: number
 }) {
-  const { ref, isDragging } = useSortable({
-    id: card.id,
-    index,
-    group: columnId,
-    type: 'item',
-  })
-
   return (
-    <div ref={ref}>
-      <CardView card={card} isDragging={isDragging} />
-    </div>
+    <Dnd.Sortable id={card.id} group={columnId} index={index}>
+      {({ ref, isDragging }) => (
+        <div ref={ref}>
+          <CardView card={card} isDragging={isDragging} />
+        </div>
+      )}
+    </Dnd.Sortable>
   )
 }
 
@@ -92,44 +87,42 @@ function ColumnView({
   onAddCard: (columnId: ColumnId, title: string) => void
 }) {
   const [isAdding, setIsAdding] = useState(false)
-  const { ref } = useDroppable({
-    id: columnId,
-    type: 'column',
-    accept: 'item',
-    collisionPriority: CollisionPriority.Low,
-  })
 
   return (
     <div className="bg-gray-800 rounded-lg w-72 shrink-0 flex flex-col max-h-full">
       <h2 className="text-gray-100 font-semibold p-4 pb-0">{title}</h2>
-      <div
-        ref={ref}
-        className="flex flex-col gap-2 overflow-y-auto flex-1 p-4"
-      >
-        {columnCards.map((card, index) => (
-          <SortableCard
-            key={card.id}
-            card={card}
-            columnId={columnId}
-            index={index}
-          />
-        ))}
-        {isAdding ? (
-          <AddCardInput
-            onAdd={(title) => {
-              onAddCard(columnId, title)
-            }}
-            onCancel={() => setIsAdding(false)}
-          />
-        ) : (
-          <button
-            onClick={() => setIsAdding(true)}
-            className="text-gray-400 hover:text-gray-200 text-left p-2 rounded hover:bg-gray-700 transition-colors"
+      <Dnd.Droppable id={columnId}>
+        {({ ref }) => (
+          <div
+            ref={ref}
+            className="flex flex-col gap-2 overflow-y-auto flex-1 p-4"
           >
-            + Add card
-          </button>
+            {columnCards.map((card, index) => (
+              <SortableCard
+                key={card.id}
+                card={card}
+                columnId={columnId}
+                index={index}
+              />
+            ))}
+            {isAdding ? (
+              <AddCardInput
+                onAdd={(title) => {
+                  onAddCard(columnId, title)
+                }}
+                onCancel={() => setIsAdding(false)}
+              />
+            ) : (
+              <button
+                onClick={() => setIsAdding(true)}
+                className="text-gray-400 hover:text-gray-200 text-left p-2 rounded hover:bg-gray-700 transition-colors"
+              >
+                + Add card
+              </button>
+            )}
+          </div>
         )}
-      </div>
+      </Dnd.Droppable>
     </div>
   )
 }
@@ -137,6 +130,9 @@ function ColumnView({
 function App() {
   const [cards, setCards] = useState(sampleBoard.cards)
   const [columns] = useState(sampleBoard.columns)
+
+  const columnIds = columns.map(c => c.id)
+  const cardList = Object.values(cards)
 
   const addCard = (columnId: ColumnId, title: string) => {
     const cardId = crypto.randomUUID()
@@ -151,62 +147,30 @@ function App() {
     setCards((prev) => ({ ...prev, [cardId]: newCard }))
   }
 
-  const moveCard = (cardId: string, toColumnId: ColumnId, newIndex: number) => {
+  const handleMove = ({ itemId, toGroupId, toIndex }: Dnd.MoveInfo) => {
     setCards((prev) => {
-      const columnCards = getColumnCards(prev, toColumnId).filter(c => c.id !== cardId)
-      const beforeCard = columnCards[newIndex - 1] ?? null
-      const afterCard = columnCards[newIndex] ?? null
+      const columnCards = getColumnCards(prev, toGroupId as ColumnId).filter(c => c.id !== itemId)
+      const beforeCard = columnCards[toIndex - 1] ?? null
+      const afterCard = columnCards[toIndex] ?? null
       const newPosition = positionBetween(
         beforeCard?.position ?? null,
         afterCard?.position ?? null
       )
 
-      console.log('moveCard', { cardId, toColumnId, newIndex, newPosition })
-
       return {
         ...prev,
-        [cardId]: { ...prev[cardId], columnId: toColumnId, position: newPosition },
+        [itemId]: { ...prev[itemId], columnId: toGroupId as ColumnId, position: newPosition },
       }
     })
   }
 
   return (
-    <DragDropProvider
-      onDragOver={(event) => {
-        const { source, target } = event.operation
-        if (!source || !target || event.operation.canceled) return
-
-        const cardId = source.id as string
-        const card = cards[cardId]
-        if (!card) return
-
-        // Determine target column and index
-        const isDropOnColumn = columns.some(c => c.id === target.id)
-        let toColumnId: ColumnId
-        let newIndex: number
-
-        if (isDropOnColumn) {
-          // Dropped on empty column area
-          toColumnId = target.id as ColumnId
-          newIndex = getColumnCards(cards, toColumnId).length
-        } else {
-          // Dropped on another card - get that card's column and position
-          const targetCard = cards[target.id as string]
-          if (!targetCard) return
-          toColumnId = targetCard.columnId
-          const targetColumnCards = getColumnCards(cards, toColumnId)
-          const targetIdx = targetColumnCards.findIndex(c => c.id === targetCard.id)
-          // Insert at target's position (target will shift down)
-          newIndex = targetIdx >= 0 ? targetIdx : targetColumnCards.length
-        }
-
-        // Only update if position actually changed
-        const currentColumnCards = getColumnCards(cards, card.columnId)
-        const currentIdx = currentColumnCards.findIndex(c => c.id === cardId)
-        if (card.columnId === toColumnId && currentIdx === newIndex) return
-
-        moveCard(cardId, toColumnId, newIndex)
-      }}
+    <Dnd.Provider
+      groups={columnIds}
+      items={cardList}
+      getId={(card) => card.id}
+      getGroupId={(card) => card.columnId}
+      onMove={handleMove}
     >
       <div className="h-screen bg-gray-900 flex flex-col overflow-hidden select-none">
         <header className="p-8 pb-0">
@@ -226,7 +190,7 @@ function App() {
           </div>
         </div>
       </div>
-    </DragDropProvider>
+    </Dnd.Provider>
   )
 }
 
