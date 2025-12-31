@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   root: 'src',
+  base: process.env.BASE_URL || '/',
   publicDir: '../public',
   build: {
     outDir: '../dist',
