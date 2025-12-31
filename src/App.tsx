@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import * as Dnd from './Dnd'
 import { sampleBoard, type Card, type ColumnId, getColumnCards, positionBetween } from './model'
 
@@ -164,10 +164,10 @@ function App() {
     })
   }
 
-  const handleMoveEnd = ({ itemId, toGroupId, toIndex }: Dnd.MoveInfo) => {
-    console.log('onMoveEnd', { itemId, toGroupId, toIndex })
-    // TODO: persist to Supabase
-  }
+  const handleMoveEnd = useCallback(({ itemId, toGroupId, toIndex }: Dnd.MoveInfo) => {
+    // TODO: persist to localStorage or Supabase
+    void itemId; void toGroupId; void toIndex;
+  }, [])
 
   return (
     <Dnd.Provider
