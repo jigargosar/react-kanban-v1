@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import * as Dnd from './Dnd'
-import { sampleBoard, type Card, type ColumnId, getColumnCards, positionBetween } from './model'
+import { sampleBoard, type Card, type ColumnId, getColumnCards, positionBetween, loadCards, saveCards } from './model'
 
 function CardView({ card, isDragging }: { card: Card; isDragging?: boolean }) {
   return (
@@ -128,7 +128,7 @@ function ColumnView({
 }
 
 function App() {
-  const [cards, setCards] = useState(sampleBoard.cards)
+  const [cards, setCards] = useState(() => loadCards() ?? sampleBoard.cards)
   const [columns] = useState(sampleBoard.columns)
 
   const columnIds = columns.map(c => c.id)
@@ -144,7 +144,11 @@ function App() {
       columnId,
       position: positionBetween(lastPosition, null),
     }
-    setCards((prev) => ({ ...prev, [cardId]: newCard }))
+    setCards((prev) => {
+      const next = { ...prev, [cardId]: newCard }
+      saveCards(next)
+      return next
+    })
   }
 
   const handleMove = ({ itemId, toGroupId, toIndex }: Dnd.MoveInfo) => {
@@ -164,9 +168,11 @@ function App() {
     })
   }
 
-  const handleMoveEnd = useCallback(({ itemId, toGroupId, toIndex }: Dnd.MoveInfo) => {
-    // TODO: persist to localStorage or Supabase
-    void itemId; void toGroupId; void toIndex;
+  const handleMoveEnd = useCallback(() => {
+    setCards((current) => {
+      saveCards(current)
+      return current
+    })
   }, [])
 
   return (

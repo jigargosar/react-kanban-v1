@@ -63,3 +63,20 @@ export const sampleBoard: Board = {
     { id: 'col-3', title: 'Done' },
   ],
 }
+
+// Local storage
+const STORAGE_KEY = 'kanban-cards'
+
+export function loadCards(): Record<CardId, Card> | null {
+  const stored = localStorage.getItem(STORAGE_KEY)
+  if (!stored) return null
+  try {
+    return JSON.parse(stored) as Record<CardId, Card>
+  } catch {
+    return null
+  }
+}
+
+export function saveCards(cards: Record<CardId, Card>): void {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(cards))
+}
