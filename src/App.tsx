@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import * as Dnd from './Dnd'
-import { sampleBoard, type Card, type ColumnId, getColumnCards, positionBetween } from './model'
-import { fetchBoard, persistCard, resetAll } from './api'
+import { type Card, type ColumnId, getColumnCards } from './model'
+import { useElmish } from './useElmish'
+import { init, update } from './AppState'
 
 function CardView({ card, isDragging }: { card: Card; isDragging?: boolean }) {
   return (
@@ -129,49 +130,23 @@ function ColumnView({
 }
 
 function App() {
-  const [cards, setCards] = useState(() => fetchBoard() ?? sampleBoard.cards)
-  const [columns] = useState(sampleBoard.columns)
+  const [state, dispatch] = useElmish(init, update)
+  const { cards, columns } = state
 
   const columnIds = columns.map(c => c.id)
   const cardList = Object.values(cards)
 
-  const addCard = (columnId: ColumnId, title: string) => {
-    const cardId = crypto.randomUUID()
-    const columnCards = getColumnCards(cards, columnId)
-    const lastPosition = columnCards.length > 0 ? columnCards[columnCards.length - 1].position : null
-    const newCard: Card = {
-      id: cardId,
-      title,
-      columnId,
-      position: positionBetween(lastPosition, null),
-    }
-    persistCard(newCard)
-    setCards((prev) => ({ ...prev, [cardId]: newCard }))
-  }
+  const addCard = useCallback((columnId: ColumnId, title: string) => {
+    dispatch({ type: 'addCard', columnId, title })
+  }, [dispatch])
 
-  const handleMove = ({ itemId, toGroupId, toIndex }: Dnd.MoveInfo) => {
-    setCards((prev) => {
-      const columnCards = getColumnCards(prev, toGroupId as ColumnId).filter(c => c.id !== itemId)
-      const beforeCard = columnCards[toIndex - 1] ?? null
-      const afterCard = columnCards[toIndex] ?? null
-      const newPosition = positionBetween(
-        beforeCard?.position ?? null,
-        afterCard?.position ?? null
-      )
+  const handleMove = useCallback((info: Dnd.MoveInfo) => {
+    dispatch({ type: 'moveCard', info })
+  }, [dispatch])
 
-      return {
-        ...prev,
-        [itemId]: { ...prev[itemId], columnId: toGroupId as ColumnId, position: newPosition },
-      }
-    })
-  }
-
-  const handleMoveEnd = useCallback(({ itemId }: Dnd.MoveInfo) => {
-    setCards((current) => {
-      persistCard(current[itemId])
-      return current
-    })
-  }, [])
+  const handleMoveEnd = useCallback((info: Dnd.MoveInfo) => {
+    dispatch({ type: 'moveCardEnd', info })
+  }, [dispatch])
 
   return (
     <Dnd.Provider
@@ -186,10 +161,7 @@ function App() {
         <header className="p-8 pb-0 flex items-center gap-4">
           <h1 className="text-2xl font-bold text-gray-100">Kanban Board</h1>
           <button
-            onClick={() => {
-              resetAll()
-              setCards(sampleBoard.cards)
-            }}
+            onClick={() => dispatch({ type: 'reset' })}
             className="text-sm text-gray-400 hover:text-gray-200 px-3 py-1 rounded hover:bg-gray-700"
           >
             Reset

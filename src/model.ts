@@ -41,6 +41,29 @@ function midpoint(a: string, b: string): string {
   }
 }
 
+// Card operations
+export function createCard(columnId: ColumnId, title: string, lastPosition: string | null): Card {
+  return {
+    id: crypto.randomUUID(),
+    title,
+    columnId,
+    position: positionBetween(lastPosition, null),
+  }
+}
+
+export function repositionCard(
+  card: Card,
+  toColumnId: ColumnId,
+  beforePos: string | null,
+  afterPos: string | null
+): Card {
+  return {
+    ...card,
+    columnId: toColumnId,
+    position: positionBetween(beforePos, afterPos),
+  }
+}
+
 // Derive cards for a column, sorted by position
 export function getColumnCards(cards: Record<CardId, Card>, columnId: ColumnId): Card[] {
   return Object.values(cards)
