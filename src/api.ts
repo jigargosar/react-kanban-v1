@@ -2,7 +2,7 @@ import type { CardId, Card } from './model'
 
 const STORAGE_KEY = 'kanban-cards'
 
-export function fetchBoard(): Record<CardId, Card> | null {
+export async function fetchBoard(): Promise<Record<CardId, Card> | null> {
   const stored = localStorage.getItem(STORAGE_KEY)
   if (!stored) return null
   try {
@@ -12,12 +12,12 @@ export function fetchBoard(): Record<CardId, Card> | null {
   }
 }
 
-export function persistCard(card: Card): void {
-  const current = fetchBoard() ?? {}
+export async function persistCard(card: Card): Promise<void> {
+  const current = await fetchBoard() ?? {}
   current[card.id] = card
   localStorage.setItem(STORAGE_KEY, JSON.stringify(current))
 }
 
-export function resetAll(): void {
+export async function resetAll(): Promise<void> {
   localStorage.removeItem(STORAGE_KEY)
 }

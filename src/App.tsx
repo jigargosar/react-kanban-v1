@@ -1,8 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import * as Dnd from './Dnd'
-import { type Card, type ColumnId, getColumnCards } from './model'
-import { useElmish } from './useElmish'
-import { init, update } from './AppState'
+import { type Card, type ColumnId, getColumnCards, sampleBoard } from './model'
+import { useAppStore } from './store'
 
 function CardView({ card, isDragging }: { card: Card; isDragging?: boolean }) {
   return (
@@ -130,23 +129,31 @@ function ColumnView({
 }
 
 function App() {
-  const [state, dispatch] = useElmish(init, update)
-  const { cards, columns } = state
+  const { cards, status, load, addCard, moveCard, persistCard, reset } = useAppStore()
+  const columns = sampleBoard.columns
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  if (status === 'loading') {
+    return (
+      <div className="h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-gray-400">Loading...</div>
+      </div>
+    )
+  }
+
+  if (status === 'error') {
+    return (
+      <div className="h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-red-400">Error loading board</div>
+      </div>
+    )
+  }
 
   const columnIds = columns.map(c => c.id)
   const cardList = Object.values(cards)
-
-  const addCard = useCallback((columnId: ColumnId, title: string) => {
-    dispatch({ type: 'addCard', columnId, title })
-  }, [dispatch])
-
-  const handleMove = useCallback((info: Dnd.MoveInfo) => {
-    dispatch({ type: 'moveCard', info })
-  }, [dispatch])
-
-  const handleMoveEnd = useCallback((info: Dnd.MoveInfo) => {
-    dispatch({ type: 'moveCardEnd', info })
-  }, [dispatch])
 
   return (
     <Dnd.Provider
@@ -154,14 +161,14 @@ function App() {
       items={cardList}
       getId={(card) => card.id}
       getGroupId={(card) => card.columnId}
-      onMove={handleMove}
-      onMoveEnd={handleMoveEnd}
+      onMove={moveCard}
+      onMoveEnd={(info) => persistCard(info.itemId)}
     >
       <div className="h-screen bg-gray-900 flex flex-col overflow-hidden select-none">
         <header className="p-8 pb-0 flex items-center gap-4">
           <h1 className="text-2xl font-bold text-gray-100">Kanban Board</h1>
           <button
-            onClick={() => dispatch({ type: 'reset' })}
+            onClick={reset}
             className="text-sm text-gray-400 hover:text-gray-200 px-3 py-1 rounded hover:bg-gray-700"
           >
             Reset
