@@ -64,3 +64,75 @@ Restore the facade to a clean, generic abstraction that:
 2. Supports nesting through composition
 3. Keeps all domain logic in the consumer
 4. Remains easy to understand and maintain
+
+---
+
+## Implementation Plan A
+
+### Components
+
+**Dnd.Root**
+- Wraps `DragDropProvider` from dnd-kit
+- Passes through provider props (sensors, modifiers, etc.)
+- Provides context for List registration
+- Routes drag events to registered Lists by `source.type`
+
+**Dnd.List**
+- Registers `{type, items, getId, group, onMove}` with Root
+- Iterates items and renders via children callback
+- Computes `MoveInfo` with neighbor IDs
+- Handles droppable zone for empty groups
+
+### API
+
+```tsx
+<Dnd.Root sensors={[PointerSensor]}>
+  <Dnd.List
+    type="column"
+    items={columns}
+    getId={(c) => c.id}
+    onMove={handleColumnMove}
+  >
+    {(col, { ref, isDragging }) => (
+      <div ref={ref} className={isDragging ? 'opacity-50' : ''}>
+        <ColumnHeader column={col} />
+        <Dnd.List
+          type="card"
+          items={getColumnCards(col.id)}
+          getId={(c) => c.id}
+          group={col.id}
+          onMove={handleCardMove}
+        >
+          {(card, { ref, isDragging }) => (
+            <div ref={ref} className={isDragging ? 'opacity-50' : ''}>
+              {card.title}
+            </div>
+          )}
+        </Dnd.List>
+      </div>
+    )}
+  </Dnd.List>
+</Dnd.Root>
+```
+
+### Props
+
+**Root:**
+- `children` - React children
+- `...providerProps` - passed through to DragDropProvider (sensors, modifiers, etc.)
+
+**List:**
+- `type` - string identifier for this sortable level (e.g., "column", "card")
+- `items` - array of items to render
+- `getId` - function to extract ID from item
+- `group` - optional group ID for multi-container (defaults to type)
+- `onMove` - callback receiving `(info: MoveInfo, isEnd: boolean)`
+- `children` - render function `(item, { ref, isDragging }) => ReactNode`
+
+### Render Callback
+
+```tsx
+{(item: T, dnd: { ref: RefCallback, isDragging: boolean }) => ReactNode}
+```
+
+Client attaches `ref` to wrapper element. Choice of element (div, li, custom component with forwardRef) is client's decision.
