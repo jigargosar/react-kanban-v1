@@ -21,7 +21,7 @@ export type Board = {
 }
 
 // Fractional indexing helpers
-export function positionBetween(before: string | null | undefined, after: string | null | undefined): string {
+function positionBetween(before: string | null | undefined, after: string | null | undefined): string {
   if (!before && !after) return 'a'
   if (!before) return midpoint('', after!)
   if (!after) return before + 'a'
@@ -52,19 +52,6 @@ export function createCard(columnId: ColumnId, title: string, lastPosition: stri
   }
 }
 
-export function repositionCard(
-  card: Card,
-  toColumnId: ColumnId,
-  beforePos: string | null | undefined,
-  afterPos: string | null | undefined
-): Card {
-  return {
-    ...card,
-    columnId: toColumnId,
-    position: positionBetween(beforePos, afterPos),
-  }
-}
-
 // Derive cards for a column, sorted by position
 export function getColumnCards(cards: Record<CardId, Card>, columnId: ColumnId): Card[] {
   return Object.values(cards)
@@ -78,17 +65,6 @@ export function createColumn(title: string, lastPosition: string | null): Column
     id: crypto.randomUUID(),
     title,
     position: positionBetween(lastPosition, null),
-  }
-}
-
-export function repositionColumn(
-  column: Column,
-  beforePos: string | null | undefined,
-  afterPos: string | null | undefined
-): Column {
-  return {
-    ...column,
-    position: positionBetween(beforePos, afterPos),
   }
 }
 

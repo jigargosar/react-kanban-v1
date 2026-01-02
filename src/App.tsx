@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import * as Dnd from './Dnd'
-import { type Card, type Column, type ColumnId, getColumnCards, getSortedColumns } from './model'
+import { type Card, type Column, getColumnCards, getSortedColumns } from './model'
 import { useAppStore } from './store'
 
 // Editable text input (used for both cards and columns)
@@ -39,7 +38,6 @@ function EditableInput({
       value={text}
       onChange={(e) => setText(e.target.value)}
       onKeyDown={(e) => {
-        e.stopPropagation() // Prevent dnd-kit keyboard sensor from capturing
         if (e.key === 'Enter') handleSave()
         if (e.key === 'Escape') onCancel()
       }}
@@ -52,7 +50,6 @@ function EditableInput({
 // Card view
 function CardView({
   card,
-  isDragging,
   isEditing,
   onStartEdit,
   onSaveEdit,
@@ -60,7 +57,6 @@ function CardView({
   onDelete,
 }: {
   card: Card
-  isDragging?: boolean
   isEditing: boolean
   onStartEdit: () => void
   onSaveEdit: (title: string) => void
@@ -69,9 +65,7 @@ function CardView({
 }) {
   return (
     <div
-      className={`relative bg-gray-700 rounded p-3 shadow text-gray-100 ${
-        isDragging ? 'opacity-50 cursor-default' : 'cursor-pointer'
-      }`}
+      className="relative bg-gray-700 rounded p-3 shadow text-gray-100 cursor-pointer"
       onDoubleClick={onStartEdit}
     >
       {isEditing ? (
@@ -96,41 +90,6 @@ function CardView({
         </>
       )}
     </div>
-  )
-}
-
-// Sortable card wrapper
-function SortableCardItem({
-  card,
-  columnId,
-  index,
-}: {
-  card: Card
-  columnId: ColumnId
-  index: number
-}) {
-  const { editing, startEditing, stopEditing, updateCard, deleteCard } = useAppStore()
-  const isEditing = editing?.type === 'card' && editing.id === card.id
-
-  return (
-    <Dnd.SortableCard id={card.id} group={columnId} index={index}>
-      {({ ref, isDragging }) => (
-        <div ref={ref} className="group">
-          <CardView
-            card={card}
-            isDragging={isDragging}
-            isEditing={isEditing}
-            onStartEdit={() => startEditing('card', card.id)}
-            onSaveEdit={(title) => {
-              updateCard(card.id, title)
-              stopEditing()
-            }}
-            onCancelEdit={stopEditing}
-            onDelete={() => deleteCard(card.id)}
-          />
-        </div>
-      )}
-    </Dnd.SortableCard>
   )
 }
 
@@ -166,7 +125,6 @@ function AddCardInput({
       value={title}
       onChange={(e) => setTitle(e.target.value)}
       onKeyDown={(e) => {
-        e.stopPropagation() // Prevent dnd-kit keyboard sensor from capturing
         if (e.key === 'Enter') handleSubmit()
         if (e.key === 'Escape') onCancel()
       }}
@@ -224,71 +182,63 @@ function ColumnHeader({
 function ColumnView({
   column,
   columnCards,
-  index,
 }: {
   column: Column
   columnCards: Card[]
-  index: number
 }) {
   const [isAdding, setIsAdding] = useState(false)
-  const { editing, startEditing, stopEditing, updateColumn, deleteColumn, addCard } = useAppStore()
-  const isEditing = editing?.type === 'column' && editing.id === column.id
+  const { editing, startEditing, stopEditing, updateCard, deleteCard, addCard } = useAppStore()
+  const isColumnEditing = editing?.type === 'column' && editing.id === column.id
 
   return (
-    <Dnd.SortableColumn id={column.id} index={index}>
-      {({ ref, isDragging }) => (
-        <div
-          ref={ref}
-          className={`group bg-gray-800 rounded-lg w-72 shrink-0 flex flex-col max-h-full ${
-            isDragging ? 'opacity-50' : ''
-          }`}
-        >
-          <ColumnHeader
-            column={column}
-            isEditing={isEditing}
-            onStartEdit={() => startEditing('column', column.id)}
-            onSaveEdit={(title) => {
-              updateColumn(column.id, title)
-              stopEditing()
+    <div className="group bg-gray-800 rounded-lg w-72 shrink-0 flex flex-col max-h-full">
+      <ColumnHeader
+        column={column}
+        isEditing={isColumnEditing}
+        onStartEdit={() => startEditing('column', column.id)}
+        onSaveEdit={(title) => {
+          useAppStore.getState().updateColumn(column.id, title)
+          stopEditing()
+        }}
+        onCancelEdit={stopEditing}
+        onDelete={() => useAppStore.getState().deleteColumn(column.id)}
+      />
+      <div className="flex flex-col gap-2 overflow-y-auto flex-1 p-4">
+        {columnCards.map((card) => {
+          const isCardEditing = editing?.type === 'card' && editing.id === card.id
+          return (
+            <div key={card.id} className="group">
+              <CardView
+                card={card}
+                isEditing={isCardEditing}
+                onStartEdit={() => startEditing('card', card.id)}
+                onSaveEdit={(title) => {
+                  updateCard(card.id, title)
+                  stopEditing()
+                }}
+                onCancelEdit={stopEditing}
+                onDelete={() => deleteCard(card.id)}
+              />
+            </div>
+          )
+        })}
+        {isAdding ? (
+          <AddCardInput
+            onAdd={(title) => {
+              addCard(column.id, title)
             }}
-            onCancelEdit={stopEditing}
-            onDelete={() => deleteColumn(column.id)}
+            onCancel={() => setIsAdding(false)}
           />
-          <Dnd.Droppable id={column.id}>
-            {({ ref: dropRef }) => (
-              <div
-                ref={dropRef}
-                className="flex flex-col gap-2 overflow-y-auto flex-1 p-4"
-              >
-                {columnCards.map((card, cardIndex) => (
-                  <SortableCardItem
-                    key={card.id}
-                    card={card}
-                    columnId={column.id}
-                    index={cardIndex}
-                  />
-                ))}
-                {isAdding ? (
-                  <AddCardInput
-                    onAdd={(title) => {
-                      addCard(column.id, title)
-                    }}
-                    onCancel={() => setIsAdding(false)}
-                  />
-                ) : (
-                  <button
-                    onClick={() => setIsAdding(true)}
-                    className="text-gray-400 hover:text-gray-200 text-left p-2 rounded hover:bg-gray-700 transition-colors"
-                  >
-                    + Add card
-                  </button>
-                )}
-              </div>
-            )}
-          </Dnd.Droppable>
-        </div>
-      )}
-    </Dnd.SortableColumn>
+        ) : (
+          <button
+            onClick={() => setIsAdding(true)}
+            className="text-gray-400 hover:text-gray-200 text-left p-2 rounded hover:bg-gray-700 transition-colors"
+          >
+            + Add card
+          </button>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -343,15 +293,7 @@ function ErrorNotification() {
 
 // Main App
 function App() {
-  const {
-    cards,
-    columns,
-    status,
-    load,
-    handleCardDndMove,
-    handleColumnDndMove,
-    reset,
-  } = useAppStore()
+  const { cards, columns, status, load, reset } = useAppStore()
 
   useEffect(() => {
     load()
@@ -366,18 +308,9 @@ function App() {
   }
 
   const sortedColumns = getSortedColumns(columns)
-  const cardList = Object.values(cards)
 
   return (
-    <Dnd.Provider
-      cards={cardList}
-      getCardId={(card) => card.id}
-      getCardGroupId={(card) => card.columnId}
-      onCardMove={handleCardDndMove}
-      columns={sortedColumns}
-      getColumnId={(column) => column.id}
-      onColumnMove={handleColumnDndMove}
-    >
+    <>
       <ErrorNotification />
       <div className="h-screen bg-gray-900 flex flex-col overflow-hidden select-none">
         <header className="p-8 pb-0 flex items-center gap-4">
@@ -391,19 +324,18 @@ function App() {
         </header>
         <div className="flex-1 overflow-x-auto overflow-y-hidden p-8 pt-4">
           <div className="flex gap-4 h-full">
-            {sortedColumns.map((column, index) => (
+            {sortedColumns.map((column) => (
               <ColumnView
                 key={column.id}
                 column={column}
                 columnCards={getColumnCards(cards, column.id)}
-                index={index}
               />
             ))}
             <AddColumnButton />
           </div>
         </div>
       </div>
-    </Dnd.Provider>
+    </>
   )
 }
 

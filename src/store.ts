@@ -7,13 +7,10 @@ import {
   sampleBoard,
   createCard,
   createColumn,
-  repositionCard,
-  repositionColumn,
   getColumnCards,
   getSortedColumns,
 } from './model'
 import * as api from './api'
-import type { MoveInfo } from './Dnd'
 
 type Status = 'idle' | 'loading'
 
@@ -36,12 +33,10 @@ type AppActions = {
   addCard: (columnId: ColumnId, title: string) => void
   updateCard: (cardId: CardId, title: string) => void
   deleteCard: (cardId: CardId) => void
-  handleCardDndMove: (info: MoveInfo, isEnd: boolean) => void
   // Column actions
   addColumn: (title: string) => void
   updateColumn: (columnId: ColumnId, title: string) => void
   deleteColumn: (columnId: ColumnId) => void
-  handleColumnDndMove: (info: MoveInfo, isEnd: boolean) => void
   // Editing
   startEditing: (type: 'card' | 'column', id: string) => void
   stopEditing: () => void
@@ -98,22 +93,6 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       .catch((e) => set({ error: e.message }))
   },
 
-  handleCardDndMove: ({ movedItemId, destGroupId, beforeId, afterId }, isEnd) => {
-    const { cards } = get()
-    const card = cards[movedItemId]
-    if (!card) return
-
-    const beforePos = beforeId ? cards[beforeId]?.position : undefined
-    const afterPos = afterId ? cards[afterId]?.position : undefined
-    const updated = repositionCard(card, destGroupId, beforePos, afterPos)
-    set({ cards: { ...cards, [card.id]: updated } })
-
-    if (isEnd) {
-      api.persistCard(updated)
-        .catch((e) => set({ error: e.message }))
-    }
-  },
-
   // Column actions
   addColumn: (title) => {
     const { columns } = get()
@@ -150,22 +129,6 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       .catch((e) => set({ error: e.message }))
     api.deleteCardsByColumn(columnId)
       .catch((e) => set({ error: e.message }))
-  },
-
-  handleColumnDndMove: ({ movedItemId, beforeId, afterId }, isEnd) => {
-    const { columns } = get()
-    const column = columns[movedItemId]
-    if (!column) return
-
-    const beforePos = beforeId ? columns[beforeId]?.position : undefined
-    const afterPos = afterId ? columns[afterId]?.position : undefined
-    const updated = repositionColumn(column, beforePos, afterPos)
-    set({ columns: { ...columns, [column.id]: updated } })
-
-    if (isEnd) {
-      api.persistColumn(updated)
-        .catch((e) => set({ error: e.message }))
-    }
   },
 
   // Editing
