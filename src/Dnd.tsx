@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useRef } from 'react'
-import { DragDropProvider, useDroppable } from '@dnd-kit/react'
+import { DragDropProvider, useDroppable, PointerSensor } from '@dnd-kit/react'
 import { useSortable } from '@dnd-kit/react/sortable'
 import { CollisionPriority } from '@dnd-kit/abstract'
 
@@ -14,87 +14,127 @@ export type MoveInfo = {
   afterId: ItemId | null
 }
 
-type ProviderProps<T> = {
+type ProviderProps<TCard, TColumn> = {
   children: ReactNode
-  groups: GroupId[]
-  items: T[]
-  getId: (item: T) => ItemId
-  getGroupId: (item: T) => GroupId
-  onDndMove: (info: MoveInfo, isEnd: boolean) => void
+  // Cards
+  cards: TCard[]
+  getCardId: (card: TCard) => ItemId
+  getCardGroupId: (card: TCard) => GroupId
+  onCardMove: (info: MoveInfo, isEnd: boolean) => void
+  // Columns
+  columns: TColumn[]
+  getColumnId: (column: TColumn) => ItemId
+  onColumnMove: (info: MoveInfo, isEnd: boolean) => void
 }
 
-export function Provider<T>({
+export function Provider<TCard, TColumn>({
   children,
-  groups,
-  items,
-  getId,
-  getGroupId,
-  onDndMove,
-}: ProviderProps<T>) {
-  // Build lookup maps from items
-  const itemById = new Map(items.map(item => [getId(item), item]))
+  cards,
+  getCardId,
+  getCardGroupId,
+  onCardMove,
+  columns,
+  getColumnId,
+  onColumnMove,
+}: ProviderProps<TCard, TColumn>) {
+  const cardById = new Map(cards.map(card => [getCardId(card), card]))
+  const columnIds = columns.map(getColumnId)
+  const lastCardMoveRef = useRef<MoveInfo | null>(null)
+  const lastColumnMoveRef = useRef<MoveInfo | null>(null)
 
-  // Track last move for onMoveEnd
-  const lastMoveRef = useRef<MoveInfo | null>(null)
-
-  const getItemGroup = (itemId: ItemId): GroupId | undefined => {
-    const item = itemById.get(itemId)
-    return item ? getGroupId(item) : undefined
+  // Card helpers
+  const getCardGroup = (cardId: ItemId): GroupId | undefined => {
+    const card = cardById.get(cardId)
+    return card ? getCardGroupId(card) : undefined
   }
 
-  const getGroupItems = (groupId: GroupId): T[] =>
-    items.filter(item => getGroupId(item) === groupId)
+  const getGroupCards = (groupId: GroupId): TCard[] =>
+    cards.filter(card => getCardGroupId(card) === groupId)
 
-  const getItemIndex = (itemId: ItemId): number => {
-    const item = itemById.get(itemId)
-    if (!item) return -1
-    const groupItems = getGroupItems(getGroupId(item))
-    return groupItems.findIndex(i => getId(i) === itemId)
+  const getCardIndex = (cardId: ItemId): number => {
+    const card = cardById.get(cardId)
+    if (!card) return -1
+    const groupCards = getGroupCards(getCardGroupId(card))
+    return groupCards.findIndex(c => getCardId(c) === cardId)
   }
 
-  const buildMoveInfo = (movedItemId: ItemId, destGroupId: GroupId, toIndex: number): MoveInfo => {
-    const groupItems = getGroupItems(destGroupId).filter(item => getId(item) !== movedItemId)
-    const beforeId = toIndex > 0 ? getId(groupItems[toIndex - 1]) : null
-    const afterId = groupItems[toIndex] ? getId(groupItems[toIndex]) : null
+  const buildCardMoveInfo = (movedItemId: ItemId, destGroupId: GroupId, toIndex: number): MoveInfo => {
+    const groupCards = getGroupCards(destGroupId).filter(card => getCardId(card) !== movedItemId)
+    const beforeId = toIndex > 0 ? getCardId(groupCards[toIndex - 1]) : null
+    const afterId = groupCards[toIndex] ? getCardId(groupCards[toIndex]) : null
     return { movedItemId, destGroupId, beforeId, afterId }
+  }
+
+  // Column helpers
+  const getColumnIndex = (columnId: ItemId): number =>
+    columns.findIndex(col => getColumnId(col) === columnId)
+
+  const buildColumnMoveInfo = (movedItemId: ItemId, toIndex: number): MoveInfo => {
+    const filteredColumns = columns.filter(col => getColumnId(col) !== movedItemId)
+    const beforeId = toIndex > 0 ? getColumnId(filteredColumns[toIndex - 1]) : null
+    const afterId = filteredColumns[toIndex] ? getColumnId(filteredColumns[toIndex]) : null
+    return { movedItemId, destGroupId: 'columns', beforeId, afterId }
   }
 
   return (
     <DragDropProvider
+      sensors={[PointerSensor]}
       onDragOver={(event) => {
         const { source, target } = event.operation
         if (!source || !target || event.operation.canceled) return
 
-        const movedItemId = source.id as ItemId
-        const currentGroup = getItemGroup(movedItemId)
-        if (!currentGroup) return
+        // Handle card drag
+        if (source.type === 'card') {
+          const movedItemId = source.id as ItemId
+          const currentGroup = getCardGroup(movedItemId)
+          if (!currentGroup) return
 
-        const isDropOnGroup = groups.includes(target.id as GroupId)
-        let destGroupId: GroupId
-        let toIndex: number
+          const isDropOnColumn = columnIds.includes(target.id as GroupId)
+          let destGroupId: GroupId
+          let toIndex: number
 
-        if (isDropOnGroup) {
-          destGroupId = target.id as GroupId
-          toIndex = getGroupItems(destGroupId).filter(item => getId(item) !== movedItemId).length
-        } else {
-          const targetGroup = getItemGroup(target.id as ItemId)
-          if (!targetGroup) return
-          destGroupId = targetGroup
-          toIndex = getItemIndex(target.id as ItemId)
+          if (isDropOnColumn) {
+            destGroupId = target.id as GroupId
+            toIndex = getGroupCards(destGroupId).filter(card => getCardId(card) !== movedItemId).length
+          } else if (target.type === 'card') {
+            const targetGroup = getCardGroup(target.id as ItemId)
+            if (!targetGroup) return
+            destGroupId = targetGroup
+            toIndex = getCardIndex(target.id as ItemId)
+          } else {
+            return
+          }
+
+          const currentIndex = getCardIndex(movedItemId)
+          if (currentGroup === destGroupId && currentIndex === toIndex) return
+
+          const moveInfo = buildCardMoveInfo(movedItemId, destGroupId, toIndex)
+          lastCardMoveRef.current = moveInfo
+          onCardMove(moveInfo, false)
         }
 
-        const currentIndex = getItemIndex(movedItemId)
-        if (currentGroup === destGroupId && currentIndex === toIndex) return
+        // Handle column drag
+        if (source.type === 'column' && target.type === 'column') {
+          const movedItemId = source.id as ItemId
+          const toIndex = getColumnIndex(target.id as ItemId)
+          const currentIndex = getColumnIndex(movedItemId)
+          if (currentIndex === toIndex) return
 
-        const moveInfo = buildMoveInfo(movedItemId, destGroupId, toIndex)
-        lastMoveRef.current = moveInfo
-        onDndMove(moveInfo, false)
+          const moveInfo = buildColumnMoveInfo(movedItemId, toIndex)
+          lastColumnMoveRef.current = moveInfo
+          onColumnMove(moveInfo, false)
+        }
       }}
-      onDragEnd={() => {
-        if (lastMoveRef.current) {
-          onDndMove(lastMoveRef.current, true)
+      onDragEnd={(event) => {
+        const { source } = event.operation
+        if (source?.type === 'card' && lastCardMoveRef.current) {
+          onCardMove(lastCardMoveRef.current, true)
         }
-        lastMoveRef.current = null
+        if (source?.type === 'column' && lastColumnMoveRef.current) {
+          onColumnMove(lastColumnMoveRef.current, true)
+        }
+        lastCardMoveRef.current = null
+        lastColumnMoveRef.current = null
       }}
     >
       {children}
@@ -102,24 +142,43 @@ export function Provider<T>({
   )
 }
 
-type SortableProps = {
+// Sortable Card
+type SortableCardProps = {
   id: ItemId
   group: GroupId
   index: number
   children: (props: { ref: (el: Element | null) => void; isDragging: boolean }) => ReactNode
 }
 
-export function Sortable({ id, group, index, children }: SortableProps) {
+export function SortableCard({ id, group, index, children }: SortableCardProps) {
   const { ref, isDragging } = useSortable({
     id,
     index,
     group,
-    type: 'item',
+    type: 'card',
   })
 
   return <>{children({ ref, isDragging })}</>
 }
 
+// Sortable Column
+type SortableColumnProps = {
+  id: ItemId
+  index: number
+  children: (props: { ref: (el: Element | null) => void; isDragging: boolean }) => ReactNode
+}
+
+export function SortableColumn({ id, index, children }: SortableColumnProps) {
+  const { ref, isDragging } = useSortable({
+    id,
+    index,
+    type: 'column',
+  })
+
+  return <>{children({ ref, isDragging })}</>
+}
+
+// Droppable (for card drop zones within columns)
 type DroppableProps = {
   id: GroupId
   children: (props: { ref: (el: Element | null) => void }) => ReactNode
@@ -128,8 +187,8 @@ type DroppableProps = {
 export function Droppable({ id, children }: DroppableProps) {
   const { ref } = useDroppable({
     id,
-    type: 'column',
-    accept: 'item',
+    type: 'cardDropZone',
+    accept: 'card',
     collisionPriority: CollisionPriority.Low,
   })
 

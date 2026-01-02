@@ -12,15 +12,16 @@ export type Card = {
 export type Column = {
   id: ColumnId
   title: string
+  position: string
 }
 
 export type Board = {
   cards: Record<CardId, Card>
-  columns: Column[]
+  columns: Record<ColumnId, Column>
 }
 
 // Fractional indexing helpers
-export function positionBetween(before: string | null, after: string | null): string {
+export function positionBetween(before: string | null | undefined, after: string | null | undefined): string {
   if (!before && !after) return 'a'
   if (!before) return midpoint('', after!)
   if (!after) return before + 'a'
@@ -54,8 +55,8 @@ export function createCard(columnId: ColumnId, title: string, lastPosition: stri
 export function repositionCard(
   card: Card,
   toColumnId: ColumnId,
-  beforePos: string | null,
-  afterPos: string | null
+  beforePos: string | null | undefined,
+  afterPos: string | null | undefined
 ): Card {
   return {
     ...card,
@@ -71,6 +72,31 @@ export function getColumnCards(cards: Record<CardId, Card>, columnId: ColumnId):
     .sort((a, b) => a.position.localeCompare(b.position))
 }
 
+// Column operations
+export function createColumn(title: string, lastPosition: string | null): Column {
+  return {
+    id: crypto.randomUUID(),
+    title,
+    position: positionBetween(lastPosition, null),
+  }
+}
+
+export function repositionColumn(
+  column: Column,
+  beforePos: string | null | undefined,
+  afterPos: string | null | undefined
+): Column {
+  return {
+    ...column,
+    position: positionBetween(beforePos, afterPos),
+  }
+}
+
+// Get sorted columns
+export function getSortedColumns(columns: Record<ColumnId, Column>): Column[] {
+  return Object.values(columns).sort((a, b) => a.position.localeCompare(b.position))
+}
+
 // Sample data
 export const sampleBoard: Board = {
   cards: {
@@ -80,10 +106,9 @@ export const sampleBoard: Board = {
     'card-4': { id: 'card-4', title: 'Add persistence', columnId: 'col-1', position: 'n' },
     'card-5': { id: 'card-5', title: 'Research Tailwind v4', columnId: 'col-3', position: 'n' },
   },
-  columns: [
-    { id: 'col-1', title: 'Todo' },
-    { id: 'col-2', title: 'In Progress' },
-    { id: 'col-3', title: 'Done' },
-  ],
+  columns: {
+    'col-1': { id: 'col-1', title: 'Todo', position: 'a' },
+    'col-2': { id: 'col-2', title: 'In Progress', position: 'n' },
+    'col-3': { id: 'col-3', title: 'Done', position: 'z' },
+  },
 }
-
