@@ -11,30 +11,34 @@ import {
 import * as api from './api'
 import type { MoveInfo } from './Dnd'
 
-type Status = 'idle' | 'loading' | 'error'
+type Status = 'idle' | 'loading'
 
 type AppState = {
   cards: Record<CardId, Card>
   status: Status
+  error: string | null
 }
 
 type AppActions = {
-  load: () => Promise<void>
+  load: () => void
   addCard: (columnId: ColumnId, title: string) => void
   deleteCard: (cardId: CardId) => void
   moveCard: (info: MoveInfo) => void
-  persistCard: (cardId: CardId) => Promise<void>
-  reset: () => Promise<void>
+  persistCard: (cardId: CardId) => void
+  reset: () => void
+  clearError: () => void
 }
 
 export const useAppStore = create<AppState & AppActions>((set, get) => ({
   cards: {},
   status: 'idle',
+  error: null,
 
-  load: async () => {
+  load: () => {
     set({ status: 'loading' })
-    const stored = await api.fetchBoard()
-    set({ cards: stored ?? sampleBoard.cards, status: 'idle' })
+    api.fetchBoard()
+      .then((stored) => set({ cards: stored ?? sampleBoard.cards, status: 'idle' }))
+      .catch((e) => set({ error: e.message, status: 'idle' }))
   },
 
   addCard: (columnId, title) => {
@@ -44,6 +48,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     const newCard = createCard(columnId, title, lastPosition)
     set({ cards: { ...cards, [newCard.id]: newCard } })
     api.persistCard(newCard)
+      .catch((e) => set({ error: e.message }))
   },
 
   deleteCard: (cardId) => {
@@ -52,6 +57,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     delete remaining[cardId]
     set({ cards: remaining })
     api.deleteCard(cardId)
+      .catch((e) => set({ error: e.message }))
   },
 
   moveCard: (info) => {
@@ -69,16 +75,20 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     set({ cards: { ...cards, [card.id]: updated } })
   },
 
-  persistCard: async (cardId) => {
+  persistCard: (cardId) => {
     const { cards } = get()
     const card = cards[cardId]
     if (card) {
-      await api.persistCard(card)
+      api.persistCard(card)
+        .catch((e) => set({ error: e.message }))
     }
   },
 
-  reset: async () => {
-    await api.resetAll()
-    set({ cards: sampleBoard.cards })
+  reset: () => {
+    api.resetAll()
+      .then(() => set({ cards: sampleBoard.cards }))
+      .catch((e) => set({ error: e.message }))
   },
+
+  clearError: () => set({ error: null }),
 }))

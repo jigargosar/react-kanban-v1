@@ -150,6 +150,23 @@ function ColumnView({
   )
 }
 
+function ErrorNotification() {
+  const { error, clearError } = useAppStore()
+  if (!error) return null
+
+  return (
+    <div className="fixed top-4 right-4 bg-red-600 text-white px-4 py-3 rounded shadow-lg flex items-center gap-3">
+      <span>{error}</span>
+      <button
+        onClick={clearError}
+        className="text-white hover:text-red-200"
+      >
+        ×
+      </button>
+    </div>
+  )
+}
+
 function App() {
   const { cards, status, load, addCard, deleteCard, moveCard, persistCard, reset } = useAppStore()
   const columns = sampleBoard.columns
@@ -166,14 +183,6 @@ function App() {
     )
   }
 
-  if (status === 'error') {
-    return (
-      <div className="h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-red-400">Error loading board</div>
-      </div>
-    )
-  }
-
   const columnIds = columns.map(c => c.id)
   const cardList = Object.values(cards)
 
@@ -186,6 +195,7 @@ function App() {
       onMove={moveCard}
       onMoveEnd={(info) => persistCard(info.itemId)}
     >
+      <ErrorNotification />
       <div className="h-screen bg-gray-900 flex flex-col overflow-hidden select-none">
         <header className="p-8 pb-0 flex items-center gap-4">
           <h1 className="text-2xl font-bold text-gray-100">Kanban Board</h1>
