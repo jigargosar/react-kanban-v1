@@ -33,12 +33,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
   load: async () => {
     set({ status: 'loading' })
-    try {
-      const stored = await api.fetchBoard()
-      set({ cards: stored ?? sampleBoard.cards, status: 'idle' })
-    } catch {
-      set({ status: 'error' })
-    }
+    const stored = await api.fetchBoard()
+    set({ cards: stored ?? sampleBoard.cards, status: 'idle' })
   },
 
   addCard: (columnId, title) => {

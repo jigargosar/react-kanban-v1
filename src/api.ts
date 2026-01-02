@@ -5,11 +5,7 @@ const STORAGE_KEY = 'kanban-cards'
 export async function fetchBoard(): Promise<Record<CardId, Card> | null> {
   const stored = localStorage.getItem(STORAGE_KEY)
   if (!stored) return null
-  try {
-    return JSON.parse(stored) as Record<CardId, Card>
-  } catch {
-    return null
-  }
+  return JSON.parse(stored) as Record<CardId, Card>
 }
 
 export async function persistCard(card: Card): Promise<void> {
