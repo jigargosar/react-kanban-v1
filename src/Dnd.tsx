@@ -8,9 +8,10 @@ export type ItemId = string
 export type GroupId = string
 
 export type MoveInfo = {
-  itemId: ItemId
-  toGroupId: GroupId
-  toIndex: number
+  movedItemId: ItemId
+  destGroupId: GroupId
+  beforeId: ItemId | null
+  afterId: ItemId | null
 }
 
 type ProviderProps<T> = {
@@ -19,8 +20,7 @@ type ProviderProps<T> = {
   items: T[]
   getId: (item: T) => ItemId
   getGroupId: (item: T) => GroupId
-  onMove: (info: MoveInfo) => void
-  onMoveEnd?: (info: MoveInfo) => void
+  onDndMove: (info: MoveInfo, isEnd: boolean) => void
 }
 
 export function Provider<T>({
@@ -29,8 +29,7 @@ export function Provider<T>({
   items,
   getId,
   getGroupId,
-  onMove,
-  onMoveEnd,
+  onDndMove,
 }: ProviderProps<T>) {
   // Build lookup maps from items
   const itemById = new Map(items.map(item => [getId(item), item]))
@@ -53,40 +52,47 @@ export function Provider<T>({
     return groupItems.findIndex(i => getId(i) === itemId)
   }
 
+  const buildMoveInfo = (movedItemId: ItemId, destGroupId: GroupId, toIndex: number): MoveInfo => {
+    const groupItems = getGroupItems(destGroupId).filter(item => getId(item) !== movedItemId)
+    const beforeId = toIndex > 0 ? getId(groupItems[toIndex - 1]) : null
+    const afterId = groupItems[toIndex] ? getId(groupItems[toIndex]) : null
+    return { movedItemId, destGroupId, beforeId, afterId }
+  }
+
   return (
     <DragDropProvider
       onDragOver={(event) => {
         const { source, target } = event.operation
         if (!source || !target || event.operation.canceled) return
 
-        const itemId = source.id as ItemId
-        const currentGroup = getItemGroup(itemId)
+        const movedItemId = source.id as ItemId
+        const currentGroup = getItemGroup(movedItemId)
         if (!currentGroup) return
 
         const isDropOnGroup = groups.includes(target.id as GroupId)
-        let toGroupId: GroupId
+        let destGroupId: GroupId
         let toIndex: number
 
         if (isDropOnGroup) {
-          toGroupId = target.id as GroupId
-          toIndex = getGroupItems(toGroupId).length
+          destGroupId = target.id as GroupId
+          toIndex = getGroupItems(destGroupId).filter(item => getId(item) !== movedItemId).length
         } else {
           const targetGroup = getItemGroup(target.id as ItemId)
           if (!targetGroup) return
-          toGroupId = targetGroup
+          destGroupId = targetGroup
           toIndex = getItemIndex(target.id as ItemId)
         }
 
-        const currentIndex = getItemIndex(itemId)
-        if (currentGroup === toGroupId && currentIndex === toIndex) return
+        const currentIndex = getItemIndex(movedItemId)
+        if (currentGroup === destGroupId && currentIndex === toIndex) return
 
-        const moveInfo = { itemId, toGroupId, toIndex }
+        const moveInfo = buildMoveInfo(movedItemId, destGroupId, toIndex)
         lastMoveRef.current = moveInfo
-        onMove(moveInfo)
+        onDndMove(moveInfo, false)
       }}
       onDragEnd={() => {
-        if (lastMoveRef.current && onMoveEnd) {
-          onMoveEnd(lastMoveRef.current)
+        if (lastMoveRef.current) {
+          onDndMove(lastMoveRef.current, true)
         }
         lastMoveRef.current = null
       }}

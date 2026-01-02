@@ -23,8 +23,7 @@ type AppActions = {
   load: () => void
   addCard: (columnId: ColumnId, title: string) => void
   deleteCard: (cardId: CardId) => void
-  moveCard: (info: MoveInfo) => void
-  persistCard: (cardId: CardId) => void
+  handleDndMove: (info: MoveInfo, isEnd: boolean) => void
   reset: () => void
   clearError: () => void
 }
@@ -60,26 +59,18 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       .catch((e) => set({ error: e.message }))
   },
 
-  moveCard: (info) => {
+  handleDndMove: ({ movedItemId, destGroupId, beforeId, afterId }, isEnd) => {
     const { cards } = get()
-    const card = cards[info.itemId]
+    const card = cards[movedItemId]
     if (!card) return
 
-    const targetCards = getColumnCards(cards, info.toGroupId)
-    const filteredCards = targetCards.filter((c) => c.id !== card.id)
-
-    const beforePos = info.toIndex > 0 ? filteredCards[info.toIndex - 1]?.position ?? null : null
-    const afterPos = filteredCards[info.toIndex]?.position ?? null
-
-    const updated = repositionCard(card, info.toGroupId, beforePos, afterPos)
+    const beforePos = beforeId ? cards[beforeId]?.position ?? null : null
+    const afterPos = afterId ? cards[afterId]?.position ?? null : null
+    const updated = repositionCard(card, destGroupId, beforePos, afterPos)
     set({ cards: { ...cards, [card.id]: updated } })
-  },
 
-  persistCard: (cardId) => {
-    const { cards } = get()
-    const card = cards[cardId]
-    if (card) {
-      api.persistCard(card)
+    if (isEnd) {
+      api.persistCard(updated)
         .catch((e) => set({ error: e.message }))
     }
   },

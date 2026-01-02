@@ -14,7 +14,7 @@ function CardView({
 }) {
   return (
     <div
-      className={`group relative bg-gray-700 rounded p-3 shadow text-gray-100 ${
+      className={`relative bg-gray-700 rounded p-3 shadow text-gray-100 ${
         isDragging ? 'opacity-50 cursor-default' : 'cursor-pointer'
       }`}
     >
@@ -24,7 +24,7 @@ function CardView({
           e.stopPropagation()
           onDelete()
         }}
-        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-200 p-1 rounded hover:bg-gray-600 transition-opacity"
+        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 text-gray-400 hover:text-gray-200 p-1 rounded hover:bg-gray-600 transition-opacity"
       >
         ×
       </button>
@@ -46,7 +46,7 @@ function SortableCard({
   return (
     <Dnd.Sortable id={card.id} group={columnId} index={index}>
       {({ ref, isDragging }) => (
-        <div ref={ref}>
+        <div ref={ref} className="group">
           <CardView card={card} isDragging={isDragging} onDelete={onDelete} />
         </div>
       )}
@@ -168,7 +168,7 @@ function ErrorNotification() {
 }
 
 function App() {
-  const { cards, status, load, addCard, deleteCard, moveCard, persistCard, reset } = useAppStore()
+  const { cards, status, load, addCard, deleteCard, handleDndMove, reset } = useAppStore()
   const columns = sampleBoard.columns
 
   useEffect(() => {
@@ -192,8 +192,7 @@ function App() {
       items={cardList}
       getId={(card) => card.id}
       getGroupId={(card) => card.columnId}
-      onMove={moveCard}
-      onMoveEnd={(info) => persistCard(info.itemId)}
+      onDndMove={handleDndMove}
     >
       <ErrorNotification />
       <div className="h-screen bg-gray-900 flex flex-col overflow-hidden select-none">
