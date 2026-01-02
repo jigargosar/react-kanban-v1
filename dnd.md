@@ -25,13 +25,18 @@ The facade has no awareness of whether there's one group or many. No special cas
 
 ### MoveInfo Contract
 
-When an item moves, the facade reports:
+```ts
+type MoveInfo = {
+  movedItemId: ItemId
+  destGroupId: GroupId
+  beforeId: ItemId | null
+  afterId: ItemId | null
+}
 
-- Which item moved
-- Destination group
-- Neighbor IDs (before/after) at the drop position
+onDndMove(info: MoveInfo, isEnd: boolean)
+```
 
-The facade does not compute positions, indices, or any domain-specific values. Consumers derive what they need from neighbor IDs.
+Consumers derive domain-specific values (e.g., fractional positions) from neighbor IDs.
 
 ### Nesting Support
 
