@@ -3,14 +3,31 @@ import * as Dnd from './Dnd'
 import { type Card, type ColumnId, getColumnCards, sampleBoard } from './model'
 import { useAppStore } from './store'
 
-function CardView({ card, isDragging }: { card: Card; isDragging?: boolean }) {
+function CardView({
+  card,
+  isDragging,
+  onDelete,
+}: {
+  card: Card
+  isDragging?: boolean
+  onDelete: () => void
+}) {
   return (
     <div
-      className={`bg-gray-700 rounded p-3 shadow text-gray-100 ${
+      className={`group relative bg-gray-700 rounded p-3 shadow text-gray-100 ${
         isDragging ? 'opacity-50 cursor-default' : 'cursor-pointer'
       }`}
     >
       {card.title}
+      <button
+        onClick={(e) => {
+          e.stopPropagation()
+          onDelete()
+        }}
+        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-200 p-1 rounded hover:bg-gray-600 transition-opacity"
+      >
+        ×
+      </button>
     </div>
   )
 }
@@ -19,16 +36,18 @@ function SortableCard({
   card,
   columnId,
   index,
+  onDelete,
 }: {
   card: Card
   columnId: ColumnId
   index: number
+  onDelete: () => void
 }) {
   return (
     <Dnd.Sortable id={card.id} group={columnId} index={index}>
       {({ ref, isDragging }) => (
         <div ref={ref}>
-          <CardView card={card} isDragging={isDragging} />
+          <CardView card={card} isDragging={isDragging} onDelete={onDelete} />
         </div>
       )}
     </Dnd.Sortable>
@@ -81,11 +100,13 @@ function ColumnView({
   title,
   columnCards,
   onAddCard,
+  onDeleteCard,
 }: {
   columnId: ColumnId
   title: string
   columnCards: Card[]
   onAddCard: (columnId: ColumnId, title: string) => void
+  onDeleteCard: (cardId: string) => void
 }) {
   const [isAdding, setIsAdding] = useState(false)
 
@@ -104,6 +125,7 @@ function ColumnView({
                 card={card}
                 columnId={columnId}
                 index={index}
+                onDelete={() => onDeleteCard(card.id)}
               />
             ))}
             {isAdding ? (
@@ -129,7 +151,7 @@ function ColumnView({
 }
 
 function App() {
-  const { cards, status, load, addCard, moveCard, persistCard, reset } = useAppStore()
+  const { cards, status, load, addCard, deleteCard, moveCard, persistCard, reset } = useAppStore()
   const columns = sampleBoard.columns
 
   useEffect(() => {
@@ -183,6 +205,7 @@ function App() {
                 title={column.title}
                 columnCards={getColumnCards(cards, column.id)}
                 onAddCard={addCard}
+                onDeleteCard={deleteCard}
               />
             ))}
           </div>

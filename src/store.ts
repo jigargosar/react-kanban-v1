@@ -21,6 +21,7 @@ type AppState = {
 type AppActions = {
   load: () => Promise<void>
   addCard: (columnId: ColumnId, title: string) => void
+  deleteCard: (cardId: CardId) => void
   moveCard: (info: MoveInfo) => void
   persistCard: (cardId: CardId) => Promise<void>
   reset: () => Promise<void>
@@ -47,6 +48,14 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     const newCard = createCard(columnId, title, lastPosition)
     set({ cards: { ...cards, [newCard.id]: newCard } })
     api.persistCard(newCard)
+  },
+
+  deleteCard: (cardId) => {
+    const { cards } = get()
+    const remaining = { ...cards }
+    delete remaining[cardId]
+    set({ cards: remaining })
+    api.deleteCard(cardId)
   },
 
   moveCard: (info) => {

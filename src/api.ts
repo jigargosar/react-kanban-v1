@@ -18,6 +18,12 @@ export async function persistCard(card: Card): Promise<void> {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(current))
 }
 
+export async function deleteCard(cardId: CardId): Promise<void> {
+  const current = await fetchBoard() ?? {}
+  delete current[cardId]
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(current))
+}
+
 export async function resetAll(): Promise<void> {
   localStorage.removeItem(STORAGE_KEY)
 }
