@@ -9,6 +9,7 @@ import {
   createColumn,
   getColumnCards,
   getSortedColumns,
+  calculatePosition,
 } from './model'
 import * as api from './api'
 
@@ -33,6 +34,7 @@ type AppActions = {
   addCard: (columnId: ColumnId, title: string) => void
   updateCard: (cardId: CardId, title: string) => void
   deleteCard: (cardId: CardId) => void
+  moveCard: (cardId: CardId, toColumnId: ColumnId, toIndex: number) => void
   // Column actions
   addColumn: (title: string) => void
   updateColumn: (columnId: ColumnId, title: string) => void
@@ -90,6 +92,23 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     delete remaining[cardId]
     set({ cards: remaining })
     api.deleteCard(cardId)
+      .catch((e) => set({ error: e.message }))
+  },
+
+  moveCard: (cardId, toColumnId, toIndex) => {
+    const { cards } = get()
+    const card = cards[cardId]
+    if (!card) return
+    const targetCards = getColumnCards(cards, toColumnId).filter(c => c.id !== cardId)
+    const newPosition = calculatePosition(targetCards, toIndex)
+    console.log('moveCard:', { toIndex, targetCards: targetCards.map(c => c.position), newPosition, oldPos: card.position })
+    if (card.columnId === toColumnId && card.position === newPosition) {
+      console.log('SKIP: same position')
+      return
+    }
+    const updated = { ...card, columnId: toColumnId, position: newPosition }
+    set({ cards: { ...cards, [cardId]: updated } })
+    api.persistCard(updated)
       .catch((e) => set({ error: e.message }))
   },
 

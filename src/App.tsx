@@ -1,5 +1,23 @@
 import { useState, useRef, useEffect } from 'react'
-import { type Card, type Column, getColumnCards, getSortedColumns } from './model'
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  useDroppable,
+  type DragStartEvent,
+  type DragEndEvent,
+  type DragOverEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { type Card, type CardId, type Column, type ColumnId, getColumnCards, getSortedColumns } from './model'
 import { useAppStore } from './store'
 
 // Editable text input (used for both cards and columns)
@@ -47,8 +65,58 @@ function EditableInput({
   )
 }
 
-// Card view
-function CardView({
+// Card content (presentational)
+function CardContent({
+  card,
+  isEditing,
+  onStartEdit,
+  onSaveEdit,
+  onCancelEdit,
+  onDelete,
+  isDragging = false,
+}: {
+  card: Card
+  isEditing?: boolean
+  onStartEdit?: () => void
+  onSaveEdit?: (title: string) => void
+  onCancelEdit?: () => void
+  onDelete?: () => void
+  isDragging?: boolean
+}) {
+  return (
+    <div
+      className={`relative bg-gray-700 rounded p-3 shadow text-gray-100 cursor-grab ${isDragging ? 'opacity-50' : ''}`}
+      onDoubleClick={onStartEdit}
+    >
+      {isEditing && onSaveEdit && onCancelEdit ? (
+        <EditableInput
+          value={card.title}
+          onSave={onSaveEdit}
+          onCancel={onCancelEdit}
+          className="w-full bg-gray-600 text-gray-100 rounded px-1 -mx-1 outline-none"
+        />
+      ) : (
+        <>
+          {card.title}
+          {onDelete && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete()
+              }}
+              className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 text-gray-400 hover:text-gray-200 p-1 rounded hover:bg-gray-600 transition-opacity"
+            >
+              ×
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+// Sortable card wrapper
+function SortableCard({
   card,
   isEditing,
   onStartEdit,
@@ -63,32 +131,31 @@ function CardView({
   onCancelEdit: () => void
   onDelete: () => void
 }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: card.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
   return (
-    <div
-      className="relative bg-gray-700 rounded p-3 shadow text-gray-100 cursor-pointer"
-      onDoubleClick={onStartEdit}
-    >
-      {isEditing ? (
-        <EditableInput
-          value={card.title}
-          onSave={onSaveEdit}
-          onCancel={onCancelEdit}
-          className="w-full bg-gray-600 text-gray-100 rounded px-1 -mx-1 outline-none"
-        />
-      ) : (
-        <>
-          {card.title}
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onDelete()
-            }}
-            className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 text-gray-400 hover:text-gray-200 p-1 rounded hover:bg-gray-600 transition-opacity"
-          >
-            ×
-          </button>
-        </>
-      )}
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="group">
+      <CardContent
+        card={card}
+        isEditing={isEditing}
+        onStartEdit={onStartEdit}
+        onSaveEdit={onSaveEdit}
+        onCancelEdit={onCancelEdit}
+        onDelete={onDelete}
+        isDragging={isDragging}
+      />
     </div>
   )
 }
@@ -189,6 +256,7 @@ function ColumnView({
   const [isAdding, setIsAdding] = useState(false)
   const { editing, startEditing, stopEditing, updateCard, deleteCard, addCard } = useAppStore()
   const isColumnEditing = editing?.type === 'column' && editing.id === column.id
+  const { setNodeRef } = useDroppable({ id: `column:${column.id}` })
 
   return (
     <div className="group bg-gray-800 rounded-lg w-72 shrink-0 flex flex-col max-h-full">
@@ -203,12 +271,13 @@ function ColumnView({
         onCancelEdit={stopEditing}
         onDelete={() => useAppStore.getState().deleteColumn(column.id)}
       />
-      <div className="flex flex-col gap-2 overflow-y-auto flex-1 p-4">
-        {columnCards.map((card) => {
-          const isCardEditing = editing?.type === 'card' && editing.id === card.id
-          return (
-            <div key={card.id} className="group">
-              <CardView
+      <div ref={setNodeRef} className="flex flex-col gap-2 overflow-y-auto flex-1 p-4 min-h-24">
+        <SortableContext items={columnCards.map(c => c.id)} strategy={verticalListSortingStrategy}>
+          {columnCards.map((card) => {
+            const isCardEditing = editing?.type === 'card' && editing.id === card.id
+            return (
+              <SortableCard
+                key={card.id}
                 card={card}
                 isEditing={isCardEditing}
                 onStartEdit={() => startEditing('card', card.id)}
@@ -219,9 +288,9 @@ function ColumnView({
                 onCancelEdit={stopEditing}
                 onDelete={() => deleteCard(card.id)}
               />
-            </div>
-          )
-        })}
+            )
+          })}
+        </SortableContext>
         {isAdding ? (
           <AddCardInput
             onAdd={(title) => {
@@ -293,11 +362,85 @@ function ErrorNotification() {
 
 // Main App
 function App() {
-  const { cards, columns, status, load, reset } = useAppStore()
+  const { cards, columns, status, load, reset, moveCard } = useAppStore()
+  const [activeCard, setActiveCard] = useState<Card | null>(null)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    })
+  )
 
   useEffect(() => {
     load()
   }, [load])
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const cardId = event.active.id as CardId
+    const card = cards[cardId]
+    if (card) setActiveCard(card)
+  }
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event
+    if (!over) return
+
+    const activeCardId = active.id as CardId
+    const activeCard = cards[activeCardId]
+    if (!activeCard) return
+
+    const overId = over.id as string
+
+    // Determine target column
+    let targetColumnId: ColumnId
+    let targetIndex: number
+
+    if (overId.startsWith('column:')) {
+      targetColumnId = overId.replace('column:', '') as ColumnId
+      targetIndex = getColumnCards(cards, targetColumnId).length
+    } else {
+      const overCard = cards[overId as CardId]
+      if (!overCard) return
+      targetColumnId = overCard.columnId
+      const targetCards = getColumnCards(cards, targetColumnId)
+      targetIndex = targetCards.findIndex(c => c.id === overId)
+    }
+
+    // Only move if changing columns
+    if (activeCard.columnId !== targetColumnId) {
+      moveCard(activeCardId, targetColumnId, targetIndex)
+    }
+  }
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveCard(null)
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    const activeCardId = active.id as CardId
+    const activeCard = cards[activeCardId]
+    if (!activeCard) return
+
+    const overId = over.id as string
+
+    // Dropped on column itself (empty area)
+    if (overId.startsWith('column:')) {
+      const targetColumnId = overId.replace('column:', '') as ColumnId
+      const targetCards = getColumnCards(cards, targetColumnId)
+      moveCard(activeCardId, targetColumnId, targetCards.length)
+      return
+    }
+
+    // Dropped on another card
+    const overCard = cards[overId as CardId]
+    if (!overCard) return
+
+    const targetColumnId = overCard.columnId
+    const allTargetCards = getColumnCards(cards, targetColumnId)
+    const overIndex = allTargetCards.findIndex(c => c.id === overId)
+
+    moveCard(activeCardId, targetColumnId, overIndex)
+  }
 
   if (status === 'loading') {
     return (
@@ -323,16 +466,31 @@ function App() {
           </button>
         </header>
         <div className="flex-1 overflow-x-auto overflow-y-hidden p-8 pt-4">
-          <div className="flex gap-4 h-full">
-            {sortedColumns.map((column) => (
-              <ColumnView
-                key={column.id}
-                column={column}
-                columnCards={getColumnCards(cards, column.id)}
-              />
-            ))}
-            <AddColumnButton />
-          </div>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="flex gap-4 h-full">
+              {sortedColumns.map((column) => (
+                <ColumnView
+                  key={column.id}
+                  column={column}
+                  columnCards={getColumnCards(cards, column.id)}
+                />
+              ))}
+              <AddColumnButton />
+            </div>
+            <DragOverlay>
+              {activeCard && (
+                <div className="bg-gray-700 rounded p-3 shadow-lg text-gray-100 cursor-grabbing w-64">
+                  {activeCard.title}
+                </div>
+              )}
+            </DragOverlay>
+          </DndContext>
         </div>
       </div>
     </>
