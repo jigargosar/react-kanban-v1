@@ -109,13 +109,13 @@ Scenarios to handle correctly:
 
 **Resolutions:**
 
-| Scenario | toGroupId | beforeId | afterId |
-|----------|-----------|----------|---------|
-| Card → Card | target.data.groupId | target.data.prevId | target.id |
-| Card → Column (empty/end) | target.id | target.data.lastCardId | null |
-| Column → Column | 'board' | target.data.prevId | target.id |
-| Insert at start | groupId | null | firstItem.id |
-| Insert at end | groupId | lastItem.id | null |
+| Scenario                  | toGroupId           | beforeId               | afterId      |
+|---------------------------|---------------------|------------------------|--------------|
+| Card → Card               | target.data.groupId | target.data.prevId     | target.id    |
+| Card → Column (empty/end) | target.id           | target.data.lastCardId | null         |
+| Column → Column           | 'board'             | target.data.prevId     | target.id    |
+| Insert at start           | groupId             | null                   | firstItem.id |
+| Insert at end             | groupId             | lastItem.id            | null         |
 
 ---
 
