@@ -5,11 +5,20 @@
 What facade needs to compute/manage internally:
 - Index management for `useSortable`
 - `beforeId`/`afterId` derivation from sorted items
-- Registering items with context for MoveInfo construction
 
-**Open questions:**
-- How does Root know about items in child Lists?
-- Does List register with Root via context?
+**Resolution:** No register pattern needed. List attaches data via `useSortable({ data })`:
+```tsx
+useSortable({
+  id: getId(item),
+  index,
+  type,
+  data: {
+    groupId: group,    // List's group prop
+    prevId,            // sorted[index-1]?.id ?? null
+  }
+})
+```
+Root reads `source.data` and `target.data` from event to construct MoveInfo.
 
 ---
 
@@ -35,22 +44,56 @@ Scenarios to handle correctly:
 - Column reordering
 - First/last position drops
 
-**Open questions:**
-- How to represent "insert at start" vs "insert at end"?
-- What if target column is empty?
+**Resolutions:**
+
+| Scenario | toGroupId | beforeId | afterId |
+|----------|-----------|----------|---------|
+| Card → Card | target.data.groupId | target.data.prevId | target.id |
+| Card → Column (empty/end) | target.id | target.data.lastCardId | null |
+| Column → Column | 'board' | target.data.prevId | target.id |
+| Insert at start | groupId | null | firstItem.id |
+| Insert at end | groupId | lastItem.id | null |
 
 ---
 
 ## 4. React Context Structure
 
-How Root and List communicate:
-- Does List need to register with Root?
-- How does Root access sorted items from Lists?
-- Event flow from DragDropProvider → Root → MoveInfo
+**Resolution:** No custom context needed for data flow.
 
-**Open questions:**
-- Can Root construct MoveInfo without knowing List internals?
-- What context shape do we need?
+Data flows via `useSortable({ data })` prop:
+1. List computes sorted items
+2. List attaches `{ groupId, prevId }` to each item via `useSortable({ data })`
+3. DragDropProvider fires event with `source.data` and `target.data`
+4. Root reads data from event, constructs MoveInfo
+
+**MoveInfo construction in Root:**
+```tsx
+onDragEnd={(event) => {
+  const { source, target } = event.operation
+
+  const moveInfo = {
+    itemId: source.id,
+    type: source.type,
+    toGroupId: target.type === 'column' ? target.id : target.data.groupId,
+    beforeId: target.type === 'column' ? target.data.lastCardId : target.data.prevId,
+    afterId: target.type === 'column' ? null : target.id,
+  }
+
+  onDragEnd(moveInfo)  // call client's handler
+}}
+```
+
+**Column data:** Columns also attach `lastCardId` for drops on empty/end of column:
+```tsx
+useSortable({
+  id: column.id,
+  type: 'column',
+  data: {
+    lastCardId: columnCards.at(-1)?.id ?? null,
+    prevId: sortedColumns[index - 1]?.id ?? null,
+  }
+})
+```
 
 ---
 
@@ -63,4 +106,22 @@ Order of changes:
 
 ## Discussion Log
 
-(We'll capture key decisions here as we iterate)
+### Decision: Data via useSortable, not register pattern
+
+**Problem:** How does Root construct MoveInfo when sorted items live in child Lists?
+
+**Options considered:**
+1. Register pattern - List registers sorted items with Root via context
+2. List handles MoveInfo - Root forwards raw event, each List checks if it's involved
+
+**Solution:** Neither. Use `useSortable({ data })` prop.
+- List already computes sorted items for rendering
+- List attaches `{ groupId, prevId }` to each item via data prop
+- DragDropProvider includes this data in event
+- Root reads `source.data` and `target.data` to construct MoveInfo
+
+**Benefits:**
+- No custom context machinery
+- No registration/unregistration lifecycle
+- Data flows naturally with dnd-kit's existing mechanism
+- List encapsulates sorting, Root encapsulates MoveInfo construction
