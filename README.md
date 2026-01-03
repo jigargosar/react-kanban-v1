@@ -35,3 +35,8 @@ pnpm build
 - Add `assertNever` utility for exhaustive type checks
 - Decide on error logging (console, Sentry, etc.)
 - Audit silent error swallowing in store (e.g., "not found" during move)
+
+### KeyboardSensor Issue
+- Default KeyboardSensor only drags columns, not cards
+- Conflicts with add card/column input forms
+- Consider disabling or configuring properly

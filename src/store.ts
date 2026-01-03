@@ -9,7 +9,7 @@ import {
   createColumn,
   getColumnCards,
   getSortedColumns,
-  calculatePosition,
+  calculatePositionBetween,
 } from './model'
 import * as api from './api'
 
@@ -34,12 +34,12 @@ type AppActions = {
   addCard: (columnId: ColumnId, title: string) => void
   updateCard: (cardId: CardId, title: string) => void
   deleteCard: (cardId: CardId) => void
-  moveCard: (cardId: CardId, toColumnId: ColumnId, toIndex: number) => void
+  moveCard: (params: { cardId: string; toColumnId: string; beforeId: string | null; afterId: string | null }) => void
   // Column actions
   addColumn: (title: string) => void
   updateColumn: (columnId: ColumnId, title: string) => void
   deleteColumn: (columnId: ColumnId) => void
-  moveColumn: (columnId: ColumnId, toIndex: number) => void
+  moveColumn: (params: { columnId: string; beforeId: string | null; afterId: string | null }) => void
   // Editing
   startEditing: (type: 'card' | 'column', id: string) => void
   stopEditing: () => void
@@ -96,15 +96,12 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       .catch((e) => set({ error: e.message }))
   },
 
-  moveCard: (cardId, toColumnId, toIndex) => {
+  moveCard: ({ cardId, toColumnId, beforeId, afterId }) => {
     const { cards } = get()
     const card = cards[cardId]
     if (!card) return
-    const targetCards = getColumnCards(cards, toColumnId).filter(c => c.id !== cardId)
-    const newPosition = calculatePosition(targetCards, toIndex)
-    console.log('moveCard:', { toIndex, targetCards: targetCards.map(c => c.position), newPosition, oldPos: card.position })
+    const newPosition = calculatePositionBetween(cards, beforeId, afterId)
     if (card.columnId === toColumnId && card.position === newPosition) {
-      console.log('SKIP: same position')
       return
     }
     const updated = { ...card, columnId: toColumnId, position: newPosition }
@@ -151,12 +148,11 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       .catch((e) => set({ error: e.message }))
   },
 
-  moveColumn: (columnId, toIndex) => {
+  moveColumn: ({ columnId, beforeId, afterId }) => {
     const { columns } = get()
     const column = columns[columnId]
     if (!column) return
-    const sortedColumns = getSortedColumns(columns).filter(c => c.id !== columnId)
-    const newPosition = calculatePosition(sortedColumns, toIndex)
+    const newPosition = calculatePositionBetween(columns, beforeId, afterId)
     if (column.position === newPosition) return
     const updated = { ...column, position: newPosition }
     set({ columns: { ...columns, [columnId]: updated } })

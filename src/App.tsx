@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
-import { DragDropProvider } from '@dnd-kit/react'
-import { useSortable } from '@dnd-kit/react/sortable'
-import { CollisionPriority } from '@dnd-kit/abstract'
-import { type Card, type CardId, type Column, type ColumnId, getColumnCards, getSortedColumns } from './model'
+import { type Card, type Column } from './model'
 import { useAppStore } from './store'
+import { Dnd, type MoveInfo } from './dnd'
+
+function assertNever(value: never, msg?: string): never {
+  throw new Error(msg ?? `Unexpected value: ${value}`)
+}
 
 // Editable text input (used for both cards and columns)
 function EditableInput({
@@ -50,35 +52,29 @@ function EditableInput({
   )
 }
 
-// Sortable card
-function SortableCard({
+// Card component (receives ref from Dnd.List)
+function CardItem({
+  cardRef,
   card,
-  index,
+  isDragging,
   isEditing,
   onStartEdit,
   onSaveEdit,
   onCancelEdit,
   onDelete,
 }: {
+  cardRef: (element: HTMLElement | null) => void
   card: Card
-  index: number
+  isDragging: boolean
   isEditing: boolean
   onStartEdit: () => void
   onSaveEdit: (title: string) => void
   onCancelEdit: () => void
   onDelete: () => void
 }) {
-  const { ref, isDragging } = useSortable({
-    id: card.id,
-    index,
-    type: 'card',
-    accept: 'card',
-    group: card.columnId,
-  })
-
   return (
     <div
-      ref={ref}
+      ref={cardRef}
       className={`group relative bg-gray-700 rounded p-3 shadow text-gray-100 cursor-grab ${isDragging ? 'opacity-50' : ''}`}
       onDoubleClick={onStartEdit}
     >
@@ -192,49 +188,34 @@ function ColumnHeader({
   )
 }
 
-// Sortable column
-function SortableColumn({
+// Column content (cards list)
+function ColumnContent({
   column,
-  index,
-  columnCards,
 }: {
   column: Column
-  index: number
-  columnCards: Card[]
 }) {
   const [isAdding, setIsAdding] = useState(false)
-  const { editing, startEditing, stopEditing, updateCard, deleteCard, addCard } = useAppStore()
-  const isColumnEditing = editing?.type === 'column' && editing.id === column.id
-
-  const { ref } = useSortable({
-    id: column.id,
-    index,
-    type: 'column',
-    collisionPriority: CollisionPriority.Low,
-    accept: ['card', 'column'],
-  })
+  const { cards, editing, startEditing, stopEditing, updateCard, deleteCard, addCard } = useAppStore()
 
   return (
-    <div ref={ref} className="group bg-gray-800 rounded-lg w-72 shrink-0 flex flex-col max-h-full">
-      <ColumnHeader
-        column={column}
-        isEditing={isColumnEditing}
-        onStartEdit={() => startEditing('column', column.id)}
-        onSaveEdit={(title) => {
-          useAppStore.getState().updateColumn(column.id, title)
-          stopEditing()
-        }}
-        onCancelEdit={stopEditing}
-        onDelete={() => useAppStore.getState().deleteColumn(column.id)}
-      />
-      <div className="flex flex-col gap-2 overflow-y-auto flex-1 p-4 min-h-24">
-        {columnCards.map((card, cardIndex) => {
+    <div className="flex flex-col gap-2 overflow-y-auto flex-1 p-4 min-h-24">
+      <Dnd.List
+        items={cards}
+        getId={(c) => c.id}
+        group={column.id}
+        getGroupId={(c) => c.columnId}
+        compare={(a, b) => (a.position < b.position ? -1 : 1)}
+        type="card"
+        accept="card"
+      >
+        {({ ref, item: card, isDragging }) => {
           const isCardEditing = editing?.type === 'card' && editing.id === card.id
           return (
-            <SortableCard
+            <CardItem
               key={card.id}
+              cardRef={ref}
               card={card}
-              index={cardIndex}
+              isDragging={isDragging}
               isEditing={isCardEditing}
               onStartEdit={() => startEditing('card', card.id)}
               onSaveEdit={(title) => {
@@ -245,23 +226,23 @@ function SortableColumn({
               onDelete={() => deleteCard(card.id)}
             />
           )
-        })}
-        {isAdding ? (
-          <AddCardInput
-            onAdd={(title) => {
-              addCard(column.id, title)
-            }}
-            onCancel={() => setIsAdding(false)}
-          />
-        ) : (
-          <button
-            onClick={() => setIsAdding(true)}
-            className="text-gray-400 hover:text-gray-200 text-left p-2 rounded hover:bg-gray-700 transition-colors"
-          >
-            + Add card
-          </button>
-        )}
-      </div>
+        }}
+      </Dnd.List>
+      {isAdding ? (
+        <AddCardInput
+          onAdd={(title) => {
+            addCard(column.id, title)
+          }}
+          onCancel={() => setIsAdding(false)}
+        />
+      ) : (
+        <button
+          onClick={() => setIsAdding(true)}
+          className="text-gray-400 hover:text-gray-200 text-left p-2 rounded hover:bg-gray-700 transition-colors"
+        >
+          + Add card
+        </button>
+      )}
     </div>
   )
 }
@@ -317,11 +298,33 @@ function ErrorNotification() {
 
 // Main App
 function App() {
-  const { cards, columns, status, load, reset, moveCard, moveColumn } = useAppStore()
+  const { cards, columns, status, load, reset, moveCard, moveColumn, editing, startEditing, stopEditing } = useAppStore()
 
   useEffect(() => {
     load()
   }, [load])
+
+  const handleMove = (info: MoveInfo) => {
+    switch (info.type) {
+      case 'card':
+        moveCard({
+          cardId: info.itemId,
+          toColumnId: info.toGroupId,
+          beforeId: info.beforeId,
+          afterId: info.afterId,
+        })
+        break
+      case 'column':
+        moveColumn({
+          columnId: info.itemId,
+          beforeId: info.beforeId,
+          afterId: info.afterId,
+        })
+        break
+      default:
+        assertNever(info.type as never)
+    }
+  }
 
   if (status === 'loading') {
     return (
@@ -330,9 +333,6 @@ function App() {
       </div>
     )
   }
-
-  const sortedColumns = getSortedColumns(columns)
-  const columnOrder = sortedColumns.map(c => c.id)
 
   return (
     <>
@@ -348,92 +348,43 @@ function App() {
           </button>
         </header>
         <div className="flex-1 overflow-x-auto overflow-y-hidden p-8 pt-4">
-          <DragDropProvider
-            onDragOver={(event) => {
-              const { source } = event.operation
-              if (source?.type === 'column') return
-
-              // Card drag over - move card between columns
-              if (source?.type === 'card') {
-                const sourceCard = cards[source.id as CardId]
-                if (!sourceCard) return
-
-                const { target } = event.operation
-                if (!target) return
-
-                // Get target column
-                let targetColumnId: ColumnId | null = null
-                let targetIndex = 0
-
-                if (target.type === 'column') {
-                  targetColumnId = target.id as ColumnId
-                  targetIndex = getColumnCards(cards, targetColumnId).length
-                } else if (target.type === 'card') {
-                  const targetCard = cards[target.id as CardId]
-                  if (targetCard) {
-                    targetColumnId = targetCard.columnId
-                    const targetCards = getColumnCards(cards, targetColumnId)
-                    targetIndex = targetCards.findIndex(c => c.id === target.id)
-                  }
-                }
-
-                if (targetColumnId && sourceCard.columnId !== targetColumnId) {
-                  moveCard(sourceCard.id, targetColumnId, targetIndex)
-                }
-              }
-            }}
-            onDragEnd={(event) => {
-              if (event.canceled) return
-
-              const { source, target } = event.operation
-              if (!source || !target) return
-
-              // Column reorder
-              if (source.type === 'column' && target.type === 'column') {
-                const overIndex = columnOrder.indexOf(target.id as ColumnId)
-                if (overIndex !== -1) {
-                  moveColumn(source.id as ColumnId, overIndex)
-                }
-                return
-              }
-
-              // Card reorder (within same column or final position)
-              if (source.type === 'card') {
-                const sourceCard = cards[source.id as CardId]
-                if (!sourceCard) return
-
-                let targetColumnId: ColumnId
-                let targetIndex: number
-
-                if (target.type === 'column') {
-                  targetColumnId = target.id as ColumnId
-                  targetIndex = getColumnCards(cards, targetColumnId).length
-                } else if (target.type === 'card') {
-                  const targetCard = cards[target.id as CardId]
-                  if (!targetCard) return
-                  targetColumnId = targetCard.columnId
-                  const targetCards = getColumnCards(cards, targetColumnId)
-                  targetIndex = targetCards.findIndex(c => c.id === target.id)
-                } else {
-                  return
-                }
-
-                moveCard(sourceCard.id, targetColumnId, targetIndex)
-              }
-            }}
-          >
+          <Dnd.Root onDragOver={handleMove} onDragEnd={handleMove}>
             <div className="flex gap-4 h-full">
-              {sortedColumns.map((column, index) => (
-                <SortableColumn
-                  key={column.id}
-                  column={column}
-                  index={index}
-                  columnCards={getColumnCards(cards, column.id)}
-                />
-              ))}
+              <Dnd.ColumnList
+                columns={columns}
+                cards={cards}
+                getColumnId={(c) => c.id}
+                getCardId={(c) => c.id}
+                getCardColumnId={(c) => c.columnId}
+                compareColumns={(a, b) => (a.position < b.position ? -1 : 1)}
+                compareCards={(a, b) => (a.position < b.position ? -1 : 1)}
+              >
+                {({ ref, column, isDragging }) => {
+                  const isColumnEditing = editing?.type === 'column' && editing.id === column.id
+                  return (
+                    <div
+                      ref={ref}
+                      className={`group bg-gray-800 rounded-lg w-72 shrink-0 flex flex-col max-h-full ${isDragging ? 'opacity-50' : ''}`}
+                    >
+                      <ColumnHeader
+                        column={column}
+                        isEditing={isColumnEditing}
+                        onStartEdit={() => startEditing('column', column.id)}
+                        onSaveEdit={(title) => {
+                          useAppStore.getState().updateColumn(column.id, title)
+                          stopEditing()
+                        }}
+                        onCancelEdit={stopEditing}
+                        onDelete={() => useAppStore.getState().deleteColumn(column.id)}
+                      />
+                      <ColumnContent column={column} />
+                    </div>
+                  )
+                }}
+              </Dnd.ColumnList>
               <AddColumnButton />
             </div>
-          </DragDropProvider>
+          </Dnd.Root>
         </div>
       </div>
     </>
