@@ -6,6 +6,7 @@ import {
   useSensor,
   useSensors,
   closestCenter,
+  closestCorners,
   useDroppable,
   type DragStartEvent,
   type DragEndEvent,
@@ -15,6 +16,7 @@ import {
   SortableContext,
   useSortable,
   verticalListSortingStrategy,
+  horizontalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { type Card, type CardId, type Column, type ColumnId, getColumnCards, getSortedColumns } from './model'
@@ -311,6 +313,36 @@ function ColumnView({
   )
 }
 
+// Sortable column wrapper
+function SortableColumn({
+  column,
+  columnCards,
+}: {
+  column: Column
+  columnCards: Card[]
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: column.id, data: { type: 'column' } })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <ColumnView column={column} columnCards={columnCards} />
+    </div>
+  )
+}
+
 // Add column button
 function AddColumnButton() {
   const [isAdding, setIsAdding] = useState(false)
@@ -360,10 +392,31 @@ function ErrorNotification() {
   )
 }
 
+// Drag item type
+type DragItem =
+  | { type: 'card'; card: Card }
+  | { type: 'column'; column: Column }
+  | null
+
+// Custom collision detection: closestCenter for cards, closestCorners for columns
+const customCollisionDetection: typeof closestCenter = (args) => {
+  const { active, droppableContainers } = args
+  const data = active.data.current as { type?: string } | undefined
+
+  if (data?.type === 'column') {
+    // Filter to only column sortables (have type: 'column' in data)
+    const columnContainers = droppableContainers.filter(
+      container => container.data.current?.type === 'column'
+    )
+    return closestCorners({ ...args, droppableContainers: columnContainers })
+  }
+  return closestCenter(args)
+}
+
 // Main App
 function App() {
-  const { cards, columns, status, load, reset, moveCard } = useAppStore()
-  const [activeCard, setActiveCard] = useState<Card | null>(null)
+  const { cards, columns, status, load, reset, moveCard, moveColumn } = useAppStore()
+  const [activeItem, setActiveItem] = useState<DragItem>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -376,20 +429,34 @@ function App() {
   }, [load])
 
   const handleDragStart = (event: DragStartEvent) => {
-    const cardId = event.active.id as CardId
-    const card = cards[cardId]
-    if (card) setActiveCard(card)
+    const { active } = event
+    const data = active.data.current as { type?: string } | undefined
+
+    if (data?.type === 'column') {
+      const column = columns[active.id as ColumnId]
+      if (column) setActiveItem({ type: 'column', column })
+    } else {
+      const card = cards[active.id as CardId]
+      if (card) setActiveItem({ type: 'card', card })
+    }
   }
 
   const handleDragOver = (event: DragOverEvent) => {
     const { active, over } = event
     if (!over) return
 
+    const activeData = active.data.current as { type?: string } | undefined
+    if (activeData?.type === 'column') return // columns don't move on drag over
+
     const activeCardId = active.id as CardId
     const activeCard = cards[activeCardId]
     if (!activeCard) return
 
     const overId = over.id as string
+    const overData = over.data.current as { type?: string } | undefined
+
+    // Skip if hovering over a column (for column sorting)
+    if (overData?.type === 'column') return
 
     // Determine target column
     let targetColumnId: ColumnId
@@ -413,10 +480,38 @@ function App() {
   }
 
   const handleDragEnd = (event: DragEndEvent) => {
-    setActiveCard(null)
+    setActiveItem(null)
     const { active, over } = event
     if (!over || active.id === over.id) return
 
+    const activeData = active.data.current as { type?: string } | undefined
+
+    // Column drag
+    if (activeData?.type === 'column') {
+      const overData = over.data.current as { type?: string } | undefined
+
+      // Can drop on another column or on a card (to get its parent column position)
+      let targetColumnId: ColumnId | null = null
+
+      if (overData?.type === 'column') {
+        targetColumnId = over.id as ColumnId
+      } else if (!String(over.id).startsWith('column:')) {
+        // Dropped on a card - get its column
+        const overCard = cards[over.id as CardId]
+        if (overCard) targetColumnId = overCard.columnId
+      }
+
+      if (!targetColumnId) return
+
+      const sortedCols = getSortedColumns(columns)
+      const overIndex = sortedCols.findIndex(c => c.id === targetColumnId)
+      if (overIndex === -1) return
+
+      moveColumn(active.id as ColumnId, overIndex)
+      return
+    }
+
+    // Card drag
     const activeCardId = active.id as CardId
     const activeCard = cards[activeCardId]
     if (!activeCard) return
@@ -468,25 +563,41 @@ function App() {
         <div className="flex-1 overflow-x-auto overflow-y-hidden p-8 pt-4">
           <DndContext
             sensors={sensors}
-            collisionDetection={closestCenter}
+            collisionDetection={customCollisionDetection}
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
           >
-            <div className="flex gap-4 h-full">
-              {sortedColumns.map((column) => (
-                <ColumnView
-                  key={column.id}
-                  column={column}
-                  columnCards={getColumnCards(cards, column.id)}
-                />
-              ))}
-              <AddColumnButton />
-            </div>
+            <SortableContext items={sortedColumns.map(c => c.id)} strategy={horizontalListSortingStrategy}>
+              <div className="flex gap-4 h-full">
+                {sortedColumns.map((column) => (
+                  <SortableColumn
+                    key={column.id}
+                    column={column}
+                    columnCards={getColumnCards(cards, column.id)}
+                  />
+                ))}
+                <AddColumnButton />
+              </div>
+            </SortableContext>
             <DragOverlay>
-              {activeCard && (
+              {activeItem?.type === 'card' && (
                 <div className="bg-gray-700 rounded p-3 shadow-lg text-gray-100 cursor-grabbing w-64">
-                  {activeCard.title}
+                  {activeItem.card.title}
+                </div>
+              )}
+              {activeItem?.type === 'column' && (
+                <div className="bg-gray-800 rounded-lg w-72 shrink-0 flex flex-col max-h-full shadow-lg opacity-90">
+                  <div className="p-4 pb-0">
+                    <h2 className="text-gray-100 font-semibold">{activeItem.column.title}</h2>
+                  </div>
+                  <div className="flex flex-col gap-2 p-4">
+                    {getColumnCards(cards, activeItem.column.id).map((card) => (
+                      <div key={card.id} className="bg-gray-700 rounded p-3 shadow text-gray-100">
+                        {card.title}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </DragOverlay>

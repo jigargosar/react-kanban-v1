@@ -39,6 +39,7 @@ type AppActions = {
   addColumn: (title: string) => void
   updateColumn: (columnId: ColumnId, title: string) => void
   deleteColumn: (columnId: ColumnId) => void
+  moveColumn: (columnId: ColumnId, toIndex: number) => void
   // Editing
   startEditing: (type: 'card' | 'column', id: string) => void
   stopEditing: () => void
@@ -147,6 +148,19 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     api.deleteColumn(columnId)
       .catch((e) => set({ error: e.message }))
     api.deleteCardsByColumn(columnId)
+      .catch((e) => set({ error: e.message }))
+  },
+
+  moveColumn: (columnId, toIndex) => {
+    const { columns } = get()
+    const column = columns[columnId]
+    if (!column) return
+    const sortedColumns = getSortedColumns(columns).filter(c => c.id !== columnId)
+    const newPosition = calculatePosition(sortedColumns, toIndex)
+    if (column.position === newPosition) return
+    const updated = { ...column, position: newPosition }
+    set({ columns: { ...columns, [columnId]: updated } })
+    api.persistColumn(updated)
       .catch((e) => set({ error: e.message }))
   },
 
