@@ -27,3 +27,11 @@ pnpm dev
 ```bash
 pnpm build
 ```
+
+## TODO
+
+### Error Handling Strategy
+- Define consistent approach for programmer errors vs runtime errors
+- Add `assertNever` utility for exhaustive type checks
+- Decide on error logging (console, Sentry, etc.)
+- Audit silent error swallowing in store (e.g., "not found" during move)

@@ -24,14 +24,77 @@ Root reads `source.data` and `target.data` from event to construct MoveInfo.
 
 ## 2. Client Code Changes
 
-How migration affects client code:
-- Store API: `moveCard(id, columnId, toIndex)` → `moveCard(id, columnId, { beforeId, afterId })`
-- `onDragOver`/`onDragEnd` handlers - what do they receive?
-- What props move from client to facade?
+### Store API Changes
+
+**Current:**
+```tsx
+moveCard(cardId, toColumnId, toIndex)
+moveColumn(columnId, toIndex)
+```
+
+**Proposed (named params):**
+```tsx
+moveCard({ cardId, toColumnId, beforeId, afterId })
+moveColumn({ columnId, beforeId, afterId })
+```
+
+### Handler Changes
+
+**Current (App.tsx):** Client manually extracts index from event
+```tsx
+onDragEnd={(event) => {
+  const targetIndex = targetCards.findIndex(c => c.id === target.id)
+  moveCard(sourceCard.id, targetColumnId, targetIndex)
+}}
+```
+
+**Proposed:** Client receives MoveInfo, passes directly to store
+```tsx
+const handleMove = (info: MoveInfo) => {
+  switch (info.type) {
+    case 'card':
+      moveCard({
+        cardId: info.itemId,
+        toColumnId: info.toGroupId,
+        beforeId: info.beforeId,
+        afterId: info.afterId,
+      })
+      break
+    case 'column':
+      moveColumn({
+        columnId: info.itemId,
+        beforeId: info.beforeId,
+        afterId: info.afterId,
+      })
+      break
+    default:
+      assertNever(info.type)
+  }
+}
+```
+
+### calculatePosition Changes
+
+**Current:** Takes index, looks up before/after positions
+```tsx
+function calculatePosition(sortedItems, targetIndex) {
+  const before = sortedItems[targetIndex - 1]?.position ?? null
+  const after = sortedItems[targetIndex]?.position ?? null
+  return generateKeyBetween(before, after)
+}
+```
+
+**Proposed:** Takes beforeId/afterId, looks up positions directly
+```tsx
+function calculatePosition(items, beforeId, afterId) {
+  const before = beforeId ? items[beforeId]?.position ?? null : null
+  const after = afterId ? items[afterId]?.position ?? null : null
+  return generateKeyBetween(before, after)
+}
+```
 
 **Open questions:**
 - Does store need both APIs during migration?
-- How does `calculatePosition` change?
 
 ---
 
