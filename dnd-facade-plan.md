@@ -162,8 +162,30 @@ useSortable({
 
 ## 5. Implementation Sequence
 
-Order of changes:
-- TBD after resolving above questions
+### Step 1: Create Dnd facade module
+- Create `src/dnd.tsx` with `Dnd.Root` and `Dnd.List` components
+- `Dnd.List`: filter, sort, map with `useSortable`, attach `data: { groupId, prevId }`
+- `Dnd.Root`: wrap `DragDropProvider`, construct `MoveInfo` from event
+
+### Step 2: Update store API
+- Change `moveCard(cardId, toColumnId, toIndex)` → `moveCard({ cardId, toColumnId, beforeId, afterId })`
+- Change `moveColumn(columnId, toIndex)` → `moveColumn({ columnId, beforeId, afterId })`
+- Update `calculatePosition` to take `beforeId`/`afterId` instead of index
+
+### Step 3: Update App.tsx
+- Replace inline `DragDropProvider` + `useSortable` with `Dnd.Root` + `Dnd.List`
+- Add `handleMove` with switch/assertNever pattern
+- Remove `getColumnCards`, `getSortedColumns` calls (facade handles)
+
+### Step 4: Test edge cases
+- Empty column drop
+- First/last position
+- Cross-column drag
+- Column reorder
+
+### Step 5: Cleanup
+- Remove unused imports/helpers from model.ts if any
+- Verify no regressions
 
 ---
 
