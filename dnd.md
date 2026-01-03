@@ -25,7 +25,11 @@ type MoveInfo = {
 ```tsx
 <Dnd.Root onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
   <Dnd.List
-    items={sortedColumns}
+    items={columns}                    // flat record/array, all items
+    getId={(c) => c.id}                // extract id for useSortable
+    group="board"                      // group identifier (constant for top-level)
+    getGroupId={() => "board"}         // all columns belong to same group
+    compare={(a, b) => a.position < b.position ? -1 : 1}  // sort order
     type="column"
     accept={['card', 'column']}
     collisionPriority={CollisionPriority.Low}
@@ -33,10 +37,13 @@ type MoveInfo = {
     {({ ref, item: column, isDragging }) => (
       <div ref={ref} className={isDragging ? 'opacity-50' : ''}>
         <Dnd.List
-          items={columnCards}
+          items={cards}                // flat record/array, all cards
+          getId={(c) => c.id}
+          group={column.id}            // from parent's render scope
+          getGroupId={(c) => c.columnId}
+          compare={(a, b) => a.position < b.position ? -1 : 1}
           type="card"
           accept="card"
-          group={column.id}
         >
           {({ ref, item: card, isDragging }) => (
             <div ref={ref}>{card.title}</div>
@@ -47,6 +54,37 @@ type MoveInfo = {
   </Dnd.List>
 </Dnd.Root>
 ```
+
+### Dnd.List Props
+| Prop                | Purpose                                                   |
+|---------------------|-----------------------------------------------------------|
+| `items`             | Flat collection (Record or array) of all items            |
+| `getId`             | Extract unique id from item                               |
+| `group`             | Group identifier for this list instance                   |
+| `getGroupId`        | Extract group from item (for filtering)                   |
+| `compare`           | Sort comparator (fractional-indexing uses string `<`/`>`) |
+| `type`              | Item type for event discrimination                        |
+| `accept`            | What types can drop here                                  |
+| `collisionPriority` | Optional, for nested containers                           |
+
+### Facade Internal Logic
+1. Filter: `items.filter(i => getGroupId(i) === group)`
+2. Sort: `.sort(compare)`
+3. Map with index for `useSortable`
+4. Construct `MoveInfo` with `beforeId`/`afterId`
+
+### Alternative: Dnd.ListRaw
+For cases where client has pre-sorted/pre-filtered data (e.g., nested data structure):
+```tsx
+<Dnd.ListRaw
+  items={preSortedFilteredItems}  // client handles filtering/sorting
+  getId={(c) => c.id}
+  type="card"
+  accept="card"
+  group={column.id}
+>
+```
+No `getGroupId` or `compare` props - client takes full responsibility.
 
 ### Why type is needed in MoveInfo
 - `DragDropProvider` fires events at root level, not per-list
