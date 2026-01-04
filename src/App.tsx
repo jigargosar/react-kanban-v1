@@ -66,11 +66,7 @@ function BoardSelector() {
             ✎
           </button>
           <button
-            onClick={() => {
-              if (confirm('Delete this board and all its columns/cards?')) {
-                deleteBoard(activeBoardId!)
-              }
-            }}
+            onClick={() => deleteBoard(activeBoardId!)}
             className="text-gray-400 hover:text-gray-200 p-1 rounded hover:bg-gray-700"
             title="Delete board"
           >
