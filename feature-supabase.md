@@ -5,19 +5,19 @@ Replace localStorage with Supabase for persistence. Keep same API signatures, sw
 
 ## Schema Mapping
 
-| App Type | DB Table | DB Column | Notes |
-|----------|----------|-----------|-------|
-| `Board.id` | boards.id | UUID | |
-| `Board.title` | boards.title | TEXT | |
-| `Board.position` | boards.position | TEXT | **Missing in DB - needs migration** |
-| `Column.id` | columns.id | UUID | |
-| `Column.boardId` | columns.board_id | UUID | snake_case in DB |
-| `Column.title` | columns.title | TEXT | |
-| `Column.position` | columns.position | TEXT | |
-| `Card.id` | cards.id | UUID | |
-| `Card.columnId` | cards.column_id | UUID | snake_case in DB |
-| `Card.title` | cards.title | TEXT | |
-| `Card.position` | cards.position | TEXT | |
+| App Type          | DB Table         | DB Column | Notes                               |
+|-------------------|------------------|-----------|-------------------------------------|
+| `Board.id`        | boards.id        | UUID      |                                     |
+| `Board.title`     | boards.title     | TEXT      |                                     |
+| `Board.position`  | boards.position  | TEXT      | **Missing in DB - needs migration** |
+| `Column.id`       | columns.id       | UUID      |                                     |
+| `Column.boardId`  | columns.board_id | UUID      | snake_case in DB                    |
+| `Column.title`    | columns.title    | TEXT      |                                     |
+| `Column.position` | columns.position | TEXT      |                                     |
+| `Card.id`         | cards.id         | UUID      |                                     |
+| `Card.columnId`   | cards.column_id  | UUID      | snake_case in DB                    |
+| `Card.title`      | cards.title      | TEXT      |                                     |
+| `Card.position`   | cards.position   | TEXT      |                                     |
 
 ## Required Migration
 
@@ -49,22 +49,22 @@ function toRecord<T extends { id: string }>(rows: T[]): Record<string, T> {
 
 ### Function Mappings
 
-| Function | Supabase Query |
-|----------|---------------|
-| `fetchBoards()` | `supabase.from('boards').select('*')` |
-| `persistBoard(board)` | `supabase.from('boards').upsert(board)` |
-| `deleteBoard(boardId)` | `supabase.from('boards').delete().eq('id', boardId)` |
-| `fetchColumns()` | `supabase.from('columns').select('*')` |
-| `persistColumn(column)` | `supabase.from('columns').upsert({...column, board_id: column.boardId})` |
-| `deleteColumn(columnId)` | `supabase.from('columns').delete().eq('id', columnId)` |
-| `fetchCards()` | `supabase.from('cards').select('*')` |
-| `persistCard(card)` | `supabase.from('cards').upsert({...card, column_id: card.columnId})` |
-| `deleteCard(cardId)` | `supabase.from('cards').delete().eq('id', cardId)` |
-| `deleteCardsByColumn(columnId)` | `supabase.from('cards').delete().eq('column_id', columnId)` |
-| `deleteBoardCascade(boardId)` | `supabase.from('boards').delete().eq('id', boardId)` (cascade handles rest) |
-| `fetchActiveBoardId()` | Keep localStorage (client-side preference) |
-| `persistActiveBoardId(boardId)` | Keep localStorage (client-side preference) |
-| `resetAll()` | Delete all from boards (cascade deletes rest) + clear localStorage |
+| Function                        | Supabase Query                                                              |
+|---------------------------------|-----------------------------------------------------------------------------|
+| `fetchBoards()`                 | `supabase.from('boards').select('*')`                                       |
+| `persistBoard(board)`           | `supabase.from('boards').upsert(board)`                                     |
+| `deleteBoard(boardId)`          | `supabase.from('boards').delete().eq('id', boardId)`                        |
+| `fetchColumns()`                | `supabase.from('columns').select('*')`                                      |
+| `persistColumn(column)`         | `supabase.from('columns').upsert({...column, board_id: column.boardId})`    |
+| `deleteColumn(columnId)`        | `supabase.from('columns').delete().eq('id', columnId)`                      |
+| `fetchCards()`                  | `supabase.from('cards').select('*')`                                        |
+| `persistCard(card)`             | `supabase.from('cards').upsert({...card, column_id: card.columnId})`        |
+| `deleteCard(cardId)`            | `supabase.from('cards').delete().eq('id', cardId)`                          |
+| `deleteCardsByColumn(columnId)` | `supabase.from('cards').delete().eq('column_id', columnId)`                 |
+| `deleteBoardCascade(boardId)`   | `supabase.from('boards').delete().eq('id', boardId)` (cascade handles rest) |
+| `fetchActiveBoardId()`          | Keep localStorage (client-side preference)                                  |
+| `persistActiveBoardId(boardId)` | Keep localStorage (client-side preference)                                  |
+| `resetAll()`                    | Delete all from boards (cascade deletes rest) + clear localStorage          |
 
 ## Implementation Order
 
