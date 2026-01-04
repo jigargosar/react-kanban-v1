@@ -5,11 +5,9 @@ import tailwindcss from '@tailwindcss/vite'
 import checker from 'vite-plugin-checker'
 
 export default defineConfig({
-  root: 'src',
   base: process.env.BASE_URL || '/',
-  publicDir: '../public',
   build: {
-    outDir: '../dist',
+    outDir: 'dist',
   },
   plugins: [
     react(),

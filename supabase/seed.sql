@@ -1,6 +1,6 @@
 -- Seed board
-INSERT INTO boards (id, title) VALUES
-  ('00000000-0000-0000-0000-000000000001', 'My Board');
+INSERT INTO boards (id, title, position) VALUES
+  ('00000000-0000-0000-0000-000000000001', 'My Board', 'a0');
 
 -- Seed columns
 INSERT INTO columns (id, board_id, title, position) VALUES
