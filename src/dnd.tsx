@@ -1,4 +1,4 @@
-import { DragDropProvider } from '@dnd-kit/react'
+import { DragDropProvider, PointerSensor } from '@dnd-kit/react'
 import { useSortable } from '@dnd-kit/react/sortable'
 import { CollisionPriority } from '@dnd-kit/abstract'
 import { useMemo, type ReactNode } from 'react'
@@ -38,6 +38,7 @@ function constructMoveInfo(
 export function Root({ onDragOver, onDragEnd, children }: RootProps) {
   return (
     <DragDropProvider
+      sensors={[PointerSensor]}
       onDragOver={(event) => {
         if (!onDragOver) return
         const { source, target } = event.operation

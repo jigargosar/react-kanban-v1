@@ -1,10 +1,91 @@
 import { useState, useRef, useEffect } from 'react'
-import { type Card, type Column } from './model'
+import { type Card, type Column, getSortedBoards } from './model'
 import { useAppStore } from './store'
 import { Dnd, type MoveInfo } from './dnd'
 
 function assertNever(value: never, msg?: string): never {
   throw new Error(msg ?? `Unexpected value: ${value}`)
+}
+
+// Board selector dropdown
+function BoardSelector() {
+  const [isAdding, setIsAdding] = useState(false)
+  const { boards, activeBoardId, setActiveBoard, addBoard, updateBoard, deleteBoard, editing, startEditing, stopEditing } = useAppStore()
+  const sortedBoards = getSortedBoards(boards)
+  const activeBoard = activeBoardId ? boards[activeBoardId] : null
+  const isEditingBoard = editing?.type === 'board' && editing.id === activeBoardId
+
+  if (isAdding) {
+    return (
+      <EditableInput
+        value=""
+        onSave={(title) => {
+          addBoard(title)
+          setIsAdding(false)
+        }}
+        onCancel={() => setIsAdding(false)}
+        className="bg-gray-700 text-gray-100 rounded px-3 py-1 outline-none w-48"
+      />
+    )
+  }
+
+  if (isEditingBoard && activeBoard) {
+    return (
+      <EditableInput
+        value={activeBoard.title}
+        onSave={(title) => {
+          updateBoard(activeBoardId!, title)
+          stopEditing()
+        }}
+        onCancel={stopEditing}
+        className="bg-gray-700 text-gray-100 rounded px-3 py-1 outline-none w-48"
+      />
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      {sortedBoards.length > 0 ? (
+        <>
+          <select
+            value={activeBoardId ?? ''}
+            onChange={(e) => setActiveBoard(e.target.value)}
+            className="bg-gray-700 text-gray-100 rounded px-3 py-1 outline-none cursor-pointer"
+          >
+            {sortedBoards.map((board) => (
+              <option key={board.id} value={board.id}>
+                {board.title}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => startEditing('board', activeBoardId!)}
+            className="text-gray-400 hover:text-gray-200 p-1 rounded hover:bg-gray-700"
+            title="Edit board"
+          >
+            ✎
+          </button>
+          <button
+            onClick={() => {
+              if (confirm('Delete this board and all its columns/cards?')) {
+                deleteBoard(activeBoardId!)
+              }
+            }}
+            className="text-gray-400 hover:text-gray-200 p-1 rounded hover:bg-gray-700"
+            title="Delete board"
+          >
+            ×
+          </button>
+        </>
+      ) : null}
+      <button
+        onClick={() => setIsAdding(true)}
+        className="text-gray-400 hover:text-gray-200 px-2 py-1 rounded hover:bg-gray-700"
+      >
+        + New Board
+      </button>
+    </div>
+  )
 }
 
 // Editable text input (used for both cards and columns)
@@ -298,7 +379,7 @@ function ErrorNotification() {
 
 // Main App
 function App() {
-  const { cards, columns, status, load, reset, moveCard, moveColumn, editing, startEditing, stopEditing } = useAppStore()
+  const { cards, columns, activeBoardId, status, load, reset, moveCard, moveColumn, editing, startEditing, stopEditing } = useAppStore()
 
   useEffect(() => {
     load()
@@ -334,57 +415,69 @@ function App() {
     )
   }
 
+  // Filter columns for active board
+  const boardColumns = activeBoardId
+    ? Object.fromEntries(Object.entries(columns).filter(([, col]) => col.boardId === activeBoardId))
+    : {}
+
   return (
     <>
       <ErrorNotification />
       <div className="h-screen bg-gray-900 flex flex-col overflow-hidden select-none">
         <header className="p-8 pb-0 flex items-center gap-4">
-          <h1 className="text-2xl font-bold text-gray-100">Kanban Board</h1>
+          <h1 className="text-2xl font-bold text-gray-100">Kanban</h1>
+          <BoardSelector />
           <button
             onClick={reset}
-            className="text-sm text-gray-400 hover:text-gray-200 px-3 py-1 rounded hover:bg-gray-700"
+            className="text-sm text-gray-400 hover:text-gray-200 px-3 py-1 rounded hover:bg-gray-700 ml-auto"
           >
             Reset
           </button>
         </header>
         <div className="flex-1 overflow-x-auto overflow-y-hidden p-8 pt-4">
-          <Dnd.Root onDragOver={handleMove} onDragEnd={handleMove}>
-            <div className="flex gap-4 h-full">
-              <Dnd.ColumnList
-                columns={columns}
-                cards={cards}
-                getColumnId={(c) => c.id}
-                getCardId={(c) => c.id}
-                getCardColumnId={(c) => c.columnId}
-                compareColumns={(a, b) => (a.position < b.position ? -1 : 1)}
-                compareCards={(a, b) => (a.position < b.position ? -1 : 1)}
-              >
-                {({ ref, column, isDragging }) => {
-                  const isColumnEditing = editing?.type === 'column' && editing.id === column.id
-                  return (
-                    <div
-                      ref={ref}
-                      className={`group bg-gray-800 rounded-lg w-72 shrink-0 flex flex-col max-h-full ${isDragging ? 'opacity-50' : ''}`}
-                    >
-                      <ColumnHeader
-                        column={column}
-                        isEditing={isColumnEditing}
-                        onStartEdit={() => startEditing('column', column.id)}
-                        onSaveEdit={(title) => {
-                          useAppStore.getState().updateColumn(column.id, title)
-                          stopEditing()
-                        }}
-                        onCancelEdit={stopEditing}
-                        onDelete={() => useAppStore.getState().deleteColumn(column.id)}
-                      />
-                      <ColumnContent column={column} />
-                    </div>
-                  )
-                }}
-              </Dnd.ColumnList>
-              <AddColumnButton />
+          {!activeBoardId ? (
+            <div className="text-gray-400 text-center mt-8">
+              Create your first board to get started
             </div>
-          </Dnd.Root>
+          ) : (
+            <Dnd.Root onDragOver={handleMove} onDragEnd={handleMove}>
+              <div className="flex gap-4 h-full">
+                <Dnd.ColumnList
+                  columns={boardColumns}
+                  cards={cards}
+                  getColumnId={(c) => c.id}
+                  getCardId={(c) => c.id}
+                  getCardColumnId={(c) => c.columnId}
+                  compareColumns={(a, b) => (a.position < b.position ? -1 : 1)}
+                  compareCards={(a, b) => (a.position < b.position ? -1 : 1)}
+                >
+                  {({ ref, column, isDragging }) => {
+                    const isColumnEditing = editing?.type === 'column' && editing.id === column.id
+                    return (
+                      <div
+                        ref={ref}
+                        className={`group bg-gray-800 rounded-lg w-72 shrink-0 flex flex-col max-h-full ${isDragging ? 'opacity-50' : ''}`}
+                      >
+                        <ColumnHeader
+                          column={column}
+                          isEditing={isColumnEditing}
+                          onStartEdit={() => startEditing('column', column.id)}
+                          onSaveEdit={(title) => {
+                            useAppStore.getState().updateColumn(column.id, title)
+                            stopEditing()
+                          }}
+                          onCancelEdit={stopEditing}
+                          onDelete={() => useAppStore.getState().deleteColumn(column.id)}
+                        />
+                        <ColumnContent column={column} />
+                      </div>
+                    )
+                  }}
+                </Dnd.ColumnList>
+                <AddColumnButton />
+              </div>
+            </Dnd.Root>
+          )}
         </div>
       </div>
     </>

@@ -3,6 +3,7 @@ import { generateKeyBetween } from 'fractional-indexing'
 // Types
 export type CardId = string
 export type ColumnId = string
+export type BoardId = string
 
 export type Card = {
   id: CardId
@@ -13,11 +14,18 @@ export type Card = {
 
 export type Column = {
   id: ColumnId
+  boardId: BoardId
   title: string
   position: string
 }
 
 export type Board = {
+  id: BoardId
+  title: string
+  position: string
+}
+
+export type BoardData = {
   cards: Record<CardId, Card>
   columns: Record<ColumnId, Column>
 }
@@ -40,7 +48,24 @@ export function getColumnCards(cards: Record<CardId, Card>, columnId: ColumnId):
 }
 
 // Column operations
-export function createColumn(title: string, lastPosition: string | null): Column {
+export function createColumn(boardId: BoardId, title: string, lastPosition: string | null): Column {
+  return {
+    id: crypto.randomUUID(),
+    boardId,
+    title,
+    position: generateKeyBetween(lastPosition, null),
+  }
+}
+
+// Get sorted columns for a board
+export function getSortedColumns(columns: Record<ColumnId, Column>, boardId: BoardId): Column[] {
+  return Object.values(columns)
+    .filter(col => col.boardId === boardId)
+    .sort((a, b) => (a.position < b.position ? -1 : a.position > b.position ? 1 : 0))
+}
+
+// Board operations
+export function createBoard(title: string, lastPosition: string | null): Board {
   return {
     id: crypto.randomUUID(),
     title,
@@ -48,9 +73,9 @@ export function createColumn(title: string, lastPosition: string | null): Column
   }
 }
 
-// Get sorted columns
-export function getSortedColumns(columns: Record<ColumnId, Column>): Column[] {
-  return Object.values(columns).sort((a, b) => (a.position < b.position ? -1 : a.position > b.position ? 1 : 0))
+// Get sorted boards
+export function getSortedBoards(boards: Record<BoardId, Board>): Board[] {
+  return Object.values(boards).sort((a, b) => (a.position < b.position ? -1 : a.position > b.position ? 1 : 0))
 }
 
 // Calculate position for inserting at target index (legacy)
@@ -74,8 +99,3 @@ export function calculatePositionBetween<T extends { id: string; position: strin
   return generateKeyBetween(beforePos, afterPos)
 }
 
-// Empty board
-export const sampleBoard: Board = {
-  cards: {},
-  columns: {},
-}

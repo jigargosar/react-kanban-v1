@@ -14,10 +14,12 @@
     "@dnd-kit/abstract": "^0.2.1",
     "@dnd-kit/helpers": "^0.2.1",
     "@dnd-kit/react": "^0.2.1",
+    "@supabase/supabase-js": "^2.89.0",
     "@tailwindcss/vite": "^4.1.18",
     "fractional-indexing": "^3.2.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "supabase": "^2.70.5",
     "tailwindcss": "^4.1.18",
     "zustand": "^5.0.9"
   },

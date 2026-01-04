@@ -1,13 +1,16 @@
 import { create } from 'zustand'
 import {
+  type Board,
+  type BoardId,
   type Card,
   type CardId,
   type Column,
   type ColumnId,
-  sampleBoard,
+  createBoard,
   createCard,
   createColumn,
   getColumnCards,
+  getSortedBoards,
   getSortedColumns,
   calculatePositionBetween,
 } from './model'
@@ -18,9 +21,12 @@ type Status = 'idle' | 'loading'
 type EditingState =
   | { type: 'card'; id: CardId }
   | { type: 'column'; id: ColumnId }
+  | { type: 'board'; id: BoardId }
   | null
 
 type AppState = {
+  boards: Record<BoardId, Board>
+  activeBoardId: BoardId | null
   cards: Record<CardId, Card>
   columns: Record<ColumnId, Column>
   status: Status
@@ -30,6 +36,11 @@ type AppState = {
 
 type AppActions = {
   load: () => void
+  // Board actions
+  addBoard: (title: string) => void
+  updateBoard: (boardId: BoardId, title: string) => void
+  deleteBoard: (boardId: BoardId) => void
+  setActiveBoard: (boardId: BoardId) => void
   // Card actions
   addCard: (columnId: ColumnId, title: string) => void
   updateCard: (cardId: CardId, title: string) => void
@@ -41,7 +52,7 @@ type AppActions = {
   deleteColumn: (columnId: ColumnId) => void
   moveColumn: (params: { columnId: string; beforeId: string | null; afterId: string | null }) => void
   // Editing
-  startEditing: (type: 'card' | 'column', id: string) => void
+  startEditing: (type: 'card' | 'column' | 'board', id: string) => void
   stopEditing: () => void
   // Other
   reset: () => void
@@ -49,6 +60,8 @@ type AppActions = {
 }
 
 export const useAppStore = create<AppState & AppActions>((set, get) => ({
+  boards: {},
+  activeBoardId: null,
   cards: {},
   columns: {},
   status: 'idle',
@@ -57,13 +70,94 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
   load: () => {
     set({ status: 'loading' })
-    api.fetchBoard()
-      .then((stored) => set({
-        cards: stored.cards ?? sampleBoard.cards,
-        columns: stored.columns ?? sampleBoard.columns,
-        status: 'idle'
-      }))
+    api.fetchAll()
+      .then(({ boards, columns, cards, activeBoardId: storedActiveBoardId }) => {
+        const boardsRecord = boards ?? {}
+        const sortedBoards = getSortedBoards(boardsRecord)
+        // Use stored activeBoardId if valid, otherwise fall back to first board
+        const activeBoardId = (storedActiveBoardId && boardsRecord[storedActiveBoardId])
+          ? storedActiveBoardId
+          : (sortedBoards.length > 0 ? sortedBoards[0].id : null)
+        set({
+          boards: boardsRecord,
+          activeBoardId,
+          columns: columns ?? {},
+          cards: cards ?? {},
+          status: 'idle'
+        })
+      })
       .catch((e) => set({ error: e.message, status: 'idle' }))
+  },
+
+  // Board actions
+  addBoard: (title) => {
+    const { boards } = get()
+    const sortedBoards = getSortedBoards(boards)
+    const lastPosition = sortedBoards.length > 0 ? sortedBoards[sortedBoards.length - 1].position : null
+    const newBoard = createBoard(title, lastPosition)
+    set({ boards: { ...boards, [newBoard.id]: newBoard }, activeBoardId: newBoard.id })
+    api.persistBoard(newBoard)
+      .catch((e) => set({ error: e.message }))
+    api.persistActiveBoardId(newBoard.id)
+      .catch((e) => set({ error: e.message }))
+  },
+
+  updateBoard: (boardId, title) => {
+    const { boards } = get()
+    const board = boards[boardId]
+    if (!board) return
+    const updated = { ...board, title }
+    set({ boards: { ...boards, [boardId]: updated } })
+    api.persistBoard(updated)
+      .catch((e) => set({ error: e.message }))
+  },
+
+  deleteBoard: (boardId) => {
+    const { boards, columns, cards, activeBoardId } = get()
+
+    // Find columns belonging to this board
+    const boardColumnIds = new Set(
+      Object.values(columns)
+        .filter(col => col.boardId === boardId)
+        .map(col => col.id)
+    )
+
+    // Filter out cards in those columns
+    const remainingCards = Object.fromEntries(
+      Object.entries(cards).filter(([, card]) => !boardColumnIds.has(card.columnId))
+    )
+
+    // Filter out columns in this board
+    const remainingColumns = Object.fromEntries(
+      Object.entries(columns).filter(([, col]) => col.boardId !== boardId)
+    )
+
+    // Remove board
+    const remainingBoards = { ...boards }
+    delete remainingBoards[boardId]
+
+    // Update active board if needed
+    let newActiveBoardId = activeBoardId
+    if (activeBoardId === boardId) {
+      const sorted = getSortedBoards(remainingBoards)
+      newActiveBoardId = sorted.length > 0 ? sorted[0].id : null
+    }
+
+    set({
+      boards: remainingBoards,
+      columns: remainingColumns,
+      cards: remainingCards,
+      activeBoardId: newActiveBoardId,
+    })
+
+    api.deleteBoardCascade(boardId)
+      .catch((e) => set({ error: e.message }))
+  },
+
+  setActiveBoard: (boardId) => {
+    set({ activeBoardId: boardId })
+    api.persistActiveBoardId(boardId)
+      .catch((e) => set({ error: e.message }))
   },
 
   // Card actions
@@ -112,10 +206,11 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
 
   // Column actions
   addColumn: (title) => {
-    const { columns } = get()
-    const sortedColumns = getSortedColumns(columns)
+    const { columns, activeBoardId } = get()
+    if (!activeBoardId) return
+    const sortedColumns = getSortedColumns(columns, activeBoardId)
     const lastPosition = sortedColumns.length > 0 ? sortedColumns[sortedColumns.length - 1].position : null
-    const newColumn = createColumn(title, lastPosition)
+    const newColumn = createColumn(activeBoardId, title, lastPosition)
     set({ columns: { ...columns, [newColumn.id]: newColumn } })
     api.persistColumn(newColumn)
       .catch((e) => set({ error: e.message }))
@@ -173,14 +268,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   reset: async () => {
     try {
       await api.resetAll()
-      set({ cards: sampleBoard.cards, columns: sampleBoard.columns })
-      // Persist sample data
-      for (const card of Object.values(sampleBoard.cards)) {
-        await api.persistCard(card)
-      }
-      for (const column of Object.values(sampleBoard.columns)) {
-        await api.persistColumn(column)
-      }
+      set({ boards: {}, activeBoardId: null, cards: {}, columns: {} })
     } catch (e) {
       set({ error: (e as Error).message })
     }
