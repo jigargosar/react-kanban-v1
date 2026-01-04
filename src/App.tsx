@@ -381,7 +381,7 @@ function App() {
     load()
   }, [load])
 
-  const handleMove = (info: MoveInfo) => {
+  const handleMove = (info: MoveInfo, persist: boolean) => {
     switch (info.type) {
       case 'card':
         moveCard({
@@ -389,6 +389,7 @@ function App() {
           toColumnId: info.toGroupId,
           beforeId: info.beforeId,
           afterId: info.afterId,
+          persist,
         })
         break
       case 'column':
@@ -396,6 +397,7 @@ function App() {
           columnId: info.itemId,
           beforeId: info.beforeId,
           afterId: info.afterId,
+          persist,
         })
         break
       default:
@@ -436,7 +438,7 @@ function App() {
               Create your first board to get started
             </div>
           ) : (
-            <Dnd.Root onDragOver={handleMove} onDragEnd={handleMove}>
+            <Dnd.Root onDragOver={(info) => handleMove(info, false)} onDragEnd={(info) => handleMove(info, true)}>
               <div className="flex gap-4 h-full">
                 <Dnd.ColumnList
                   columns={boardColumns}

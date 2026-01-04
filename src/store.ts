@@ -45,12 +45,12 @@ type AppActions = {
   addCard: (columnId: ColumnId, title: string) => void
   updateCard: (cardId: CardId, title: string) => void
   deleteCard: (cardId: CardId) => void
-  moveCard: (params: { cardId: string; toColumnId: string; beforeId: string | null; afterId: string | null }) => void
+  moveCard: (params: { cardId: string; toColumnId: string; beforeId: string | null; afterId: string | null; persist?: boolean }) => void
   // Column actions
   addColumn: (title: string) => void
   updateColumn: (columnId: ColumnId, title: string) => void
   deleteColumn: (columnId: ColumnId) => void
-  moveColumn: (params: { columnId: string; beforeId: string | null; afterId: string | null }) => void
+  moveColumn: (params: { columnId: string; beforeId: string | null; afterId: string | null; persist?: boolean }) => void
   // Editing
   startEditing: (type: 'card' | 'column' | 'board', id: string) => void
   stopEditing: () => void
@@ -190,7 +190,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       .catch((e) => set({ error: e.message }))
   },
 
-  moveCard: ({ cardId, toColumnId, beforeId, afterId }) => {
+  moveCard: ({ cardId, toColumnId, beforeId, afterId, persist = true }) => {
     const { cards } = get()
     const card = cards[cardId]
     if (!card) return
@@ -200,8 +200,10 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     }
     const updated = { ...card, columnId: toColumnId, position: newPosition }
     set({ cards: { ...cards, [cardId]: updated } })
-    api.persistCard(updated)
-      .catch((e) => set({ error: e.message }))
+    if (persist) {
+      api.persistCard(updated)
+        .catch((e) => set({ error: e.message }))
+    }
   },
 
   // Column actions
@@ -241,7 +243,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       .catch((e) => set({ error: e.message }))
   },
 
-  moveColumn: ({ columnId, beforeId, afterId }) => {
+  moveColumn: ({ columnId, beforeId, afterId, persist = true }) => {
     const { columns } = get()
     const column = columns[columnId]
     if (!column) return
@@ -249,8 +251,10 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     if (column.position === newPosition) return
     const updated = { ...column, position: newPosition }
     set({ columns: { ...columns, [columnId]: updated } })
-    api.persistColumn(updated)
-      .catch((e) => set({ error: e.message }))
+    if (persist) {
+      api.persistColumn(updated)
+        .catch((e) => set({ error: e.message }))
+    }
   },
 
   // Editing
