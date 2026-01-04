@@ -21,9 +21,8 @@ Replace localStorage with Supabase for persistence. Keep same API signatures, sw
 
 ## Implementation Order
 
-### Phase 0: Prepare
-1. Remove `deleteCardsByColumn` call from store.ts:242-243
-2. Remove `deleteCardsByColumn` function from api.ts:65-71
+### Phase 0: Simplify API Contract
+See `refactor-api-contract.md` - independent of Supabase integration.
 
 ### Phase 1: Fix DB Schema
 1. Add `position TEXT NOT NULL` to boards table in migration
@@ -45,9 +44,10 @@ Replace localStorage with Supabase for persistence. Keep same API signatures, sw
 
 ### Phase 4: Replace api.ts
 7. Replace localStorage calls with Supabase queries
-8. Simplify `deleteBoardCascade` to just delete board
-9. Only expose `fetchAll`, others internal
-10. Return `{}` not `null` for empty results
+8. Simplify `deleteBoardCascade` to just delete board (CASCADE handles columns/cards)
+9. Simplify `deleteColumnCascade` to just delete column (CASCADE handles cards)
+10. Only expose `fetchAll`, others internal
+11. Return `{}` not `null` for empty results
 
 ### Phase 5: Test & Finalize
 13. Clear localStorage, test fresh load
