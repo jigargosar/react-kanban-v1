@@ -6,7 +6,7 @@ const BOARDS_KEY = 'kanban-boards'
 const ACTIVE_BOARD_KEY = 'kanban-active-board'
 
 // Board operations
-export async function fetchBoards(): Promise<Record<BoardId, Board> | null> {
+async function fetchBoards(): Promise<Record<BoardId, Board> | null> {
   const stored = localStorage.getItem(BOARDS_KEY)
   if (!stored) return null
   return JSON.parse(stored) as Record<BoardId, Board>
@@ -18,14 +18,14 @@ export async function persistBoard(board: Board): Promise<void> {
   localStorage.setItem(BOARDS_KEY, JSON.stringify(current))
 }
 
-export async function deleteBoard(boardId: BoardId): Promise<void> {
+async function deleteBoard(boardId: BoardId): Promise<void> {
   const current = await fetchBoards() ?? {}
   delete current[boardId]
   localStorage.setItem(BOARDS_KEY, JSON.stringify(current))
 }
 
 // Card operations
-export async function fetchCards(): Promise<Record<CardId, Card> | null> {
+async function fetchCards(): Promise<Record<CardId, Card> | null> {
   const stored = localStorage.getItem(CARDS_KEY)
   if (!stored) return null
   return JSON.parse(stored) as Record<CardId, Card>
@@ -44,7 +44,7 @@ export async function deleteCard(cardId: CardId): Promise<void> {
 }
 
 // Column operations
-export async function fetchColumns(): Promise<Record<ColumnId, Column> | null> {
+async function fetchColumns(): Promise<Record<ColumnId, Column> | null> {
   const stored = localStorage.getItem(COLUMNS_KEY)
   if (!stored) return null
   return JSON.parse(stored) as Record<ColumnId, Column>
@@ -56,18 +56,18 @@ export async function persistColumn(column: Column): Promise<void> {
   localStorage.setItem(COLUMNS_KEY, JSON.stringify(current))
 }
 
-export async function deleteColumn(columnId: ColumnId): Promise<void> {
-  const current = await fetchColumns() ?? {}
-  delete current[columnId]
-  localStorage.setItem(COLUMNS_KEY, JSON.stringify(current))
-}
-
-export async function deleteCardsByColumn(columnId: ColumnId): Promise<void> {
-  const current = await fetchCards() ?? {}
-  const filtered = Object.fromEntries(
-    Object.entries(current).filter(([, card]) => card.columnId !== columnId)
+export async function deleteColumnCascade(columnId: ColumnId): Promise<void> {
+  // Delete cards in column
+  const cards = await fetchCards() ?? {}
+  const filteredCards = Object.fromEntries(
+    Object.entries(cards).filter(([, card]) => card.columnId !== columnId)
   )
-  localStorage.setItem(CARDS_KEY, JSON.stringify(filtered))
+  localStorage.setItem(CARDS_KEY, JSON.stringify(filteredCards))
+
+  // Delete column
+  const columns = await fetchColumns() ?? {}
+  delete columns[columnId]
+  localStorage.setItem(COLUMNS_KEY, JSON.stringify(columns))
 }
 
 // Board cascade delete - removes board, its columns, and their cards
@@ -98,7 +98,7 @@ export async function deleteBoardCascade(boardId: BoardId): Promise<void> {
 }
 
 // Active board
-export async function fetchActiveBoardId(): Promise<BoardId | null> {
+async function fetchActiveBoardId(): Promise<BoardId | null> {
   return localStorage.getItem(ACTIVE_BOARD_KEY)
 }
 

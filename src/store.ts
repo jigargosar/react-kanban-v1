@@ -237,9 +237,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     )
     set({ cards: remainingCards, columns: remainingColumns })
     // Persist
-    api.deleteColumn(columnId)
-      .catch((e) => set({ error: e.message }))
-    api.deleteCardsByColumn(columnId)
+    api.deleteColumnCascade(columnId)
       .catch((e) => set({ error: e.message }))
   },
 
