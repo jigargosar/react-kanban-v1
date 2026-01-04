@@ -1,7 +1,9 @@
 -- Boards table
 CREATE TABLE boards (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  title TEXT NOT NULL
+  title TEXT NOT NULL,
+  position TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
 
 -- Columns table
@@ -9,7 +11,8 @@ CREATE TABLE columns (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   board_id UUID NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
-  position TEXT NOT NULL
+  position TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
 
 -- Cards table
@@ -17,7 +20,8 @@ CREATE TABLE cards (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title TEXT NOT NULL,
   column_id UUID NOT NULL REFERENCES columns(id) ON DELETE CASCADE,
-  position TEXT NOT NULL
+  position TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
 
 -- Enable public access (no auth for now)

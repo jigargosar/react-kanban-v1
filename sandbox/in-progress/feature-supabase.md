@@ -26,28 +26,37 @@ See `refactor-api-contract.md` - independent of Supabase integration.
 
 ### Phase 1: Fix DB Schema
 1. Add `position TEXT NOT NULL` to boards table in migration
-2. Add position value `'a0'` to seed.sql
-3. Run `pnpm exec supabase db reset --linked`
+2. Add `created_at TIMESTAMPTZ DEFAULT now()` to all tables
+3. Add position value `'a0'` to seed.sql
+4. Run `pnpm exec supabase db reset --linked`
 
 ### Phase 2: Generate Types
 4. Run `pnpm exec supabase gen types typescript --linked > src/database.types.ts`
 5. Update supabase client with types
 
 ### Phase 3: Add Mappers
-6. Add to api.ts (mark with `/* @db-mapper */`):
+6. Add type aliases from generated types:
+   ```typescript
+   import { Tables, TablesInsert } from './database.types'
+   type DbBoard = Tables<'boards'>
+   type DbColumn = Tables<'columns'>
+   type DbCard = Tables<'cards'>
+   ```
+7. Add to api.ts:
    - `toRecord<T>()` - array to Record by id
-   - `toBoard()` - DB row → Board (ignores created_at)
-   - `toColumn()` - DB row → Column (board_id → boardId)
-   - `toCard()` - DB row → Card (column_id → columnId)
-   - `fromColumn()` - Column → DB row
-   - `fromCard()` - Card → DB row
+   - `toBoard(row: DbBoard): Board` - `{ id, title, position }` (drops `created_at`)
+   - `toColumn(row: DbColumn): Column` - `{ id, boardId, title, position }` (drops `created_at`)
+   - `toCard(row: DbCard): Card` - `{ id, columnId, title, position }` (drops `created_at`)
+   - `fromBoard(board: Board): TablesInsert<'boards'>` - `{ id, title, position }`
+   - `fromColumn(col: Column): TablesInsert<'columns'>` - `{ id, board_id, title, position }`
+   - `fromCard(card: Card): TablesInsert<'cards'>` - `{ id, column_id, title, position }`
 
 ### Phase 4: Replace api.ts
-7. Replace localStorage calls with Supabase queries
-8. Simplify `deleteBoardCascade` to just delete board (CASCADE handles columns/cards)
-9. Simplify `deleteColumnCascade` to just delete column (CASCADE handles cards)
-10. Only expose `fetchAll`, others internal
-11. Return `{}` not `null` for empty results
+8. Replace localStorage calls with Supabase queries
+9. Simplify `deleteBoardCascade` to just delete board (CASCADE handles columns/cards)
+10. Simplify `deleteColumnCascade` to just delete column (CASCADE handles cards)
+11. Only expose `fetchAll`, others internal
+12. Return `{}` not `null` for empty results
 
 ### Phase 5: Test & Finalize
 13. Clear localStorage, test fresh load
