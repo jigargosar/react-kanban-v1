@@ -13,7 +13,7 @@ function toRecord<T extends { id: string }>(rows: T[]): Record<string, T> {
 }
 
 function toBoard(row: DbBoard): Board {
-  return { id: row.id, title: row.title, position: row.position }
+  return { id: row.id, userId: row.user_id, title: row.title, position: row.position }
 }
 
 function toColumn(row: DbColumn): Column {
@@ -25,7 +25,7 @@ function toCard(row: DbCard): Card {
 }
 
 function fromBoard(board: Board): TablesInsert<'boards'> {
-  return { id: board.id, title: board.title, position: board.position }
+  return { id: board.id, user_id: board.userId, title: board.title, position: board.position }
 }
 
 function fromColumn(col: Column): TablesInsert<'columns'> {

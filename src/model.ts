@@ -19,8 +19,11 @@ export type Column = {
   position: string
 }
 
+export type UserId = string
+
 export type Board = {
   id: BoardId
+  userId: UserId
   title: string
   position: string
 }
@@ -65,9 +68,10 @@ export function getSortedColumns(columns: Record<ColumnId, Column>, boardId: Boa
 }
 
 // Board operations
-export function createBoard(title: string, lastPosition: string | null): Board {
+export function createBoard(userId: UserId, title: string, lastPosition: string | null): Board {
   return {
     id: crypto.randomUUID(),
+    userId,
     title,
     position: generateKeyBetween(lastPosition, null),
   }

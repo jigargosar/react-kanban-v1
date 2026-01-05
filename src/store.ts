@@ -15,6 +15,7 @@ import {
   calculatePositionBetween,
 } from './model'
 import * as api from './api'
+import { supabase } from './supabase'
 
 type Status = 'idle' | 'loading'
 
@@ -90,11 +91,16 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   },
 
   // Board actions
-  addBoard: (title) => {
+  addBoard: async (title) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      set({ error: 'Must be logged in to create a board' })
+      return
+    }
     const { boards } = get()
     const sortedBoards = getSortedBoards(boards)
     const lastPosition = sortedBoards.length > 0 ? sortedBoards[sortedBoards.length - 1].position : null
-    const newBoard = createBoard(title, lastPosition)
+    const newBoard = createBoard(user.id, title, lastPosition)
     set({ boards: { ...boards, [newBoard.id]: newBoard }, activeBoardId: newBoard.id })
     api.persistBoard(newBoard)
       .catch((e) => set({ error: e.message }))

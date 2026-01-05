@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react'
 import { type Card, type Column, getSortedBoards } from './model'
 import { useAppStore } from './store'
 import { Dnd, type MoveInfo } from './dnd'
+import { supabase } from './supabase'
+import type { User } from '@supabase/supabase-js'
 
 function assertNever(value: never, msg?: string): never {
   throw new Error(msg ?? `Unexpected value: ${value}`)
@@ -373,6 +375,58 @@ function ErrorNotification() {
   )
 }
 
+// Auth component for quick testing
+function AuthButton() {
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null)
+      setLoading(false)
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  const handleLogin = async () => {
+    await supabase.auth.signInWithOAuth({ provider: 'github' })
+  }
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+  }
+
+  if (loading) return null
+
+  if (user) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-gray-400 text-sm">{user.user_metadata?.user_name ?? user.email}</span>
+        <button
+          onClick={handleLogout}
+          className="text-sm text-gray-400 hover:text-gray-200 px-3 py-1 rounded hover:bg-gray-700"
+        >
+          Logout
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <button
+      onClick={handleLogin}
+      className="text-sm text-gray-400 hover:text-gray-200 px-3 py-1 rounded hover:bg-gray-700"
+    >
+      Login with GitHub
+    </button>
+  )
+}
+
 // Main App
 function App() {
   const { cards, columns, activeBoardId, status, load, reset, moveCard, moveColumn, editing, startEditing, stopEditing } = useAppStore()
@@ -425,12 +479,15 @@ function App() {
         <header className="p-8 pb-0 flex items-center gap-4">
           <h1 className="text-2xl font-bold text-gray-100">Kanban</h1>
           <BoardSelector />
-          <button
-            onClick={reset}
-            className="text-sm text-gray-400 hover:text-gray-200 px-3 py-1 rounded hover:bg-gray-700 ml-auto"
-          >
-            Reset
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={reset}
+              className="text-sm text-gray-400 hover:text-gray-200 px-3 py-1 rounded hover:bg-gray-700"
+            >
+              Reset
+            </button>
+            <AuthButton />
+          </div>
         </header>
         <div className="flex-1 overflow-x-auto overflow-y-hidden p-8 pt-4">
           {!activeBoardId ? (
