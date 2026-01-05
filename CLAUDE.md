@@ -8,4 +8,4 @@ Using Supabase cloud, not local. No `supabase start`.
 
 # Testing
 
-- Skip pointer/dnd browser testing. Has issues, wastes time.
+- Chrome MCP: Skip pointer/dnd browser testing. Has issues, wastes time.
