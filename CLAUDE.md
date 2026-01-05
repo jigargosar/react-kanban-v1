@@ -8,4 +8,4 @@ Using Supabase cloud, not local. No `supabase start`.
 
 # Testing
 
-- Chrome MCP: Skip pointer/dnd browser testing. Has issues, wastes time.
+- When testing using Chrome MCP in Claude code: Skip pointer/dnd browser testing. Has issues, wastes time. (FYI this applies only to slow non-repeatable chrome plugin of Claude code, nothing else.)
