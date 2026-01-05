@@ -117,7 +117,7 @@ export async function fetchAll(): Promise<{
 
 // Reset all data
 export async function resetAll(): Promise<void> {
-  const { error } = await supabase.from('boards').delete().neq('id', '')
+  const { error } = await supabase.from('boards').delete().not('id', 'is', null)
   if (error) throw error
   localStorage.removeItem(ACTIVE_BOARD_KEY)
 }
