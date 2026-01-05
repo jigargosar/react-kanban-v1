@@ -31,8 +31,10 @@ User → "Login with GitHub" → GitHub consent → Supabase callback → App (a
 
 ## Data Model Changes
 
-- Add `user_id` (UUID, FK to `auth.users`) to: `boards`, `columns`, `cards`
-- RLS policies: users see/modify only their own data
+- Add `user_id` (UUID, FK to `auth.users`) to `boards` only
+- Columns/cards inherit ownership via FK chain
+- RLS subquery policies check ownership through parent
+- Indices on `boards.user_id`, `columns.board_id`, `cards.column_id` for performance
 
 ## Production
 
