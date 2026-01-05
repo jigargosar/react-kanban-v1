@@ -51,6 +51,7 @@ export function Root({ onDragOver, onDragEnd, children }: RootProps) {
         if (event.canceled) return
         const { source, target } = event.operation
         if (!source || !target) return
+        if (source.id === target.id) return // no movement
         onDragEnd(constructMoveInfo(source, target))
       }}
     >
