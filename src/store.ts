@@ -16,6 +16,7 @@ import {
   calculatePositionBetween,
 } from './model'
 import * as api from './api'
+import { enqueue } from './queue'
 
 type Status = 'idle' | 'loading'
 
@@ -74,7 +75,12 @@ type AppActions = {
   clearError: () => void
 }
 
-export const useAppStore = create<AppState & AppActions>((set, get) => ({
+export const useAppStore = create<AppState & AppActions>((set, get) => {
+  const persist = (fn: () => Promise<void>) => {
+    enqueue(fn).catch((e) => set({ error: (e as Error).message }))
+  }
+
+  return {
   // Auth
   user: null,
   authLoading: true,
@@ -143,12 +149,10 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     const sortedBoards = getSortedBoards(boards)
     const lastPosition = sortedBoards.length > 0 ? sortedBoards[sortedBoards.length - 1].position : null
     const newBoard = createBoard(user.id, title, lastPosition)
-    console.log('[ADD_BOARD] Adding board:', newBoard.id, 'title:', title)
+    console.log('[ ADD_BOARD] Adding board:', newBoard.id, 'title:', title)
     set({ boards: { ...boards, [newBoard.id]: newBoard }, activeBoardId: newBoard.id })
-    api.persistBoard(newBoard)
-      .catch((e) => set({ error: e.message }))
-    api.persistActiveBoardId(newBoard.id)
-      .catch((e) => set({ error: e.message }))
+    persist(() => api.persistBoard(newBoard))
+    persist(() => api.persistActiveBoardId(newBoard.id))
   },
 
   updateBoard: (boardId, title) => {
@@ -159,8 +163,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     const updated = { ...board, title }
     set({ boards: { ...boards, [boardId]: updated } })
     console.log('[UPDATE_BOARD] State updated')
-    api.persistBoard(updated)
-      .catch((e) => set({ error: e.message }))
+    persist(() => api.persistBoard(updated))
   },
 
   deleteBoard: (boardId) => {
@@ -201,14 +204,12 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       activeBoardId: newActiveBoardId,
     })
 
-    api.deleteBoardCascade(boardId)
-      .catch((e) => set({ error: e.message }))
+    persist(() => api.deleteBoardCascade(boardId))
   },
 
   setActiveBoard: (boardId) => {
     set({ activeBoardId: boardId })
-    api.persistActiveBoardId(boardId)
-      .catch((e) => set({ error: e.message }))
+    persist(() => api.persistActiveBoardId(boardId))
   },
 
   // Card actions
@@ -218,8 +219,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     const lastPosition = columnCards.length > 0 ? columnCards[columnCards.length - 1].position : null
     const newCard = createCard(columnId, title, lastPosition)
     set({ cards: { ...cards, [newCard.id]: newCard } })
-    api.persistCard(newCard)
-      .catch((e) => set({ error: e.message }))
+    persist(() => api.persistCard(newCard))
   },
 
   updateCard: (cardId, title) => {
@@ -228,8 +228,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     if (!card) return
     const updated = { ...card, title }
     set({ cards: { ...cards, [cardId]: updated } })
-    api.persistCard(updated)
-      .catch((e) => set({ error: e.message }))
+    persist(() => api.persistCard(updated))
   },
 
   deleteCard: (cardId) => {
@@ -237,11 +236,10 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     const remaining = { ...cards }
     delete remaining[cardId]
     set({ cards: remaining })
-    api.deleteCard(cardId)
-      .catch((e) => set({ error: e.message }))
+    persist(() => api.deleteCard(cardId))
   },
 
-  moveCard: ({ cardId, toColumnId, beforeId, afterId, persist = true }) => {
+  moveCard: ({ cardId, toColumnId, beforeId, afterId, persist: shouldPersist = true }) => {
     const { cards } = get()
     const card = cards[cardId]
     if (!card) return
@@ -251,9 +249,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     }
     const updated = { ...card, columnId: toColumnId, position: newPosition }
     set({ cards: { ...cards, [cardId]: updated } })
-    if (persist) {
-      api.persistCard(updated)
-        .catch((e) => set({ error: e.message }))
+    if (shouldPersist) {
+      persist(() => api.persistCard(updated))
     }
   },
 
@@ -265,8 +262,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     const lastPosition = sortedColumns.length > 0 ? sortedColumns[sortedColumns.length - 1].position : null
     const newColumn = createColumn(activeBoardId, title, lastPosition)
     set({ columns: { ...columns, [newColumn.id]: newColumn } })
-    api.persistColumn(newColumn)
-      .catch((e) => set({ error: e.message }))
+    persist(() => api.persistColumn(newColumn))
   },
 
   updateColumn: (columnId, title) => {
@@ -275,8 +271,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     if (!column) return
     const updated = { ...column, title }
     set({ columns: { ...columns, [columnId]: updated } })
-    api.persistColumn(updated)
-      .catch((e) => set({ error: e.message }))
+    persist(() => api.persistColumn(updated))
   },
 
   deleteColumn: (columnId) => {
@@ -289,12 +284,10 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
       Object.entries(cards).filter(([, card]) => card.columnId !== columnId)
     )
     set({ cards: remainingCards, columns: remainingColumns })
-    // Persist
-    api.deleteColumnCascade(columnId)
-      .catch((e) => set({ error: e.message }))
+    persist(() => api.deleteColumnCascade(columnId))
   },
 
-  moveColumn: ({ columnId, beforeId, afterId, persist = true }) => {
+  moveColumn: ({ columnId, beforeId, afterId, persist: shouldPersist = true }) => {
     const { columns } = get()
     const column = columns[columnId]
     if (!column) return
@@ -302,9 +295,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
     if (column.position === newPosition) return
     const updated = { ...column, position: newPosition }
     set({ columns: { ...columns, [columnId]: updated } })
-    if (persist) {
-      api.persistColumn(updated)
-        .catch((e) => set({ error: e.message }))
+    if (shouldPersist) {
+      persist(() => api.persistColumn(updated))
     }
   },
 
@@ -318,17 +310,11 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   },
 
   // Other
-  reset: async () => {
-    try {
-      console.log('[RESET] Starting reset, calling API...')
-      await api.resetAll()
-      console.log('[RESET] API complete, about to clear state. Current boards:', Object.keys(get().boards))
-      set({ boards: {}, activeBoardId: null, cards: {}, columns: {} })
-      console.log('[RESET] State cleared')
-    } catch (e) {
-      set({ error: (e as Error).message })
-    }
+  reset: () => {
+    console.log('[RESET] Clearing state and queueing API call')
+    set({ boards: {}, activeBoardId: null, cards: {}, columns: {} })
+    persist(() => api.resetAll())
   },
 
   clearError: () => set({ error: null }),
-}))
+}})
