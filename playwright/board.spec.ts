@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { login, resetData } from "./helpers";
 
 test.beforeEach(async ({ page, request }) => {
+  page.on("console", (msg) => console.log(`[BROWSER] ${msg.text()}`));
   await login(page, request);
   await resetData(page);
 });

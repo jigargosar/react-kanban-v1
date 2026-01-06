@@ -6,6 +6,7 @@ import {
   type CardId,
   type Column,
   type ColumnId,
+  type UserId,
   createBoard,
   createCard,
   createColumn,
@@ -15,9 +16,13 @@ import {
   calculatePositionBetween,
 } from './model'
 import * as api from './api'
-import { supabase } from './supabase'
 
 type Status = 'idle' | 'loading'
+
+type AuthUser = {
+  id: UserId
+  name: string | null
+}
 
 type EditingState =
   | { type: 'card'; id: CardId }
@@ -26,6 +31,10 @@ type EditingState =
   | null
 
 type AppState = {
+  // Auth
+  user: AuthUser | null
+  authLoading: boolean
+  // Data
   boards: Record<BoardId, Board>
   activeBoardId: BoardId | null
   cards: Record<CardId, Card>
@@ -36,6 +45,11 @@ type AppState = {
 }
 
 type AppActions = {
+  // Auth
+  initAuth: () => () => void
+  signIn: () => void
+  signOut: () => void
+  // Data
   load: () => void
   // Board actions
   addBoard: (title: string) => void
@@ -61,6 +75,10 @@ type AppActions = {
 }
 
 export const useAppStore = create<AppState & AppActions>((set, get) => ({
+  // Auth
+  user: null,
+  authLoading: true,
+  // Data
   boards: {},
   activeBoardId: null,
   cards: {},
@@ -68,6 +86,31 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   status: 'idle',
   error: null,
   editing: null,
+
+  initAuth: () => {
+    api.getSession().then((session) => {
+      const user = session?.user
+      set({
+        user: user ? { id: user.id, name: user.user_metadata?.user_name ?? user.email ?? null } : null,
+        authLoading: false,
+      })
+    })
+
+    return api.onAuthStateChange((_event, session) => {
+      const user = session?.user
+      set({
+        user: user ? { id: user.id, name: user.user_metadata?.user_name ?? user.email ?? null } : null,
+      })
+    })
+  },
+
+  signIn: () => {
+    api.signInWithGitHub()
+  },
+
+  signOut: () => {
+    api.signOut()
+  },
 
   load: () => {
     set({ status: 'loading' })
@@ -91,16 +134,16 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   },
 
   // Board actions
-  addBoard: async (title) => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
+  addBoard: (title) => {
+    const { user, authLoading, boards } = get()
+    if (authLoading || !user) {
       set({ error: 'Must be logged in to create a board' })
       return
     }
-    const { boards } = get()
     const sortedBoards = getSortedBoards(boards)
     const lastPosition = sortedBoards.length > 0 ? sortedBoards[sortedBoards.length - 1].position : null
     const newBoard = createBoard(user.id, title, lastPosition)
+    console.log('[ADD_BOARD] Adding board:', newBoard.id, 'title:', title)
     set({ boards: { ...boards, [newBoard.id]: newBoard }, activeBoardId: newBoard.id })
     api.persistBoard(newBoard)
       .catch((e) => set({ error: e.message }))
@@ -275,8 +318,11 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   // Other
   reset: async () => {
     try {
+      console.log('[RESET] Starting reset, calling API...')
       await api.resetAll()
+      console.log('[RESET] API complete, about to clear state. Current boards:', Object.keys(get().boards))
       set({ boards: {}, activeBoardId: null, cards: {}, columns: {} })
+      console.log('[RESET] State cleared')
     } catch (e) {
       set({ error: (e as Error).message })
     }

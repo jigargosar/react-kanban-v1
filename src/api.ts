@@ -1,6 +1,16 @@
+import { createClient } from '@supabase/supabase-js'
+import type { AuthChangeEvent, Session, User } from '@supabase/supabase-js'
 import type { Card, Column, Board, BoardId } from './model'
-import type { Tables, TablesInsert } from './database.types'
-import { supabase } from './supabase'
+import type { Database, Tables, TablesInsert } from './database.types'
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing Supabase environment variables')
+}
+
+const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
 
 type DbBoard = Tables<'boards'>
 type DbColumn = Tables<'columns'>
@@ -120,4 +130,30 @@ export async function resetAll(): Promise<void> {
   const { error } = await supabase.from('boards').delete().not('id', 'is', null)
   if (error) throw error
   localStorage.removeItem(ACTIVE_BOARD_KEY)
+}
+
+// Auth
+export async function getUser(): Promise<User | null> {
+  const { data: { user } } = await supabase.auth.getUser()
+  return user
+}
+
+export async function getSession(): Promise<Session | null> {
+  const { data: { session } } = await supabase.auth.getSession()
+  return session
+}
+
+export async function signInWithGitHub(): Promise<void> {
+  await supabase.auth.signInWithOAuth({ provider: 'github' })
+}
+
+export async function signOut(): Promise<void> {
+  await supabase.auth.signOut()
+}
+
+export function onAuthStateChange(
+  callback: (event: AuthChangeEvent, session: Session | null) => void
+): () => void {
+  const { data: { subscription } } = supabase.auth.onAuthStateChange(callback)
+  return () => subscription.unsubscribe()
 }
