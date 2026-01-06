@@ -154,9 +154,11 @@ export const useAppStore = create<AppState & AppActions>((set, get) => ({
   updateBoard: (boardId, title) => {
     const { boards } = get()
     const board = boards[boardId]
+    console.log('[UPDATE_BOARD] boardId:', boardId, 'title:', title, 'found:', !!board)
     if (!board) return
     const updated = { ...board, title }
     set({ boards: { ...boards, [boardId]: updated } })
+    console.log('[UPDATE_BOARD] State updated')
     api.persistBoard(updated)
       .catch((e) => set({ error: e.message }))
   },
