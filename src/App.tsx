@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react'
 import { type Card, type Column, getSortedBoards } from './model'
 import { useAppStore } from './store'
 import { Dnd, type MoveInfo } from './dnd'
-import { useResetMutation, useAddBoardMutation } from './mutations'
 
 function assertNever(value: never, msg?: string): never {
   throw new Error(msg ?? `Unexpected value: ${value}`)
@@ -11,8 +10,7 @@ function assertNever(value: never, msg?: string): never {
 // Board selector dropdown
 function BoardSelector() {
   const [isAdding, setIsAdding] = useState(false)
-  const { boards, activeBoardId, setActiveBoard, updateBoard, deleteBoard, editing, startEditing, stopEditing } = useAppStore()
-  const addBoardMutation = useAddBoardMutation()
+  const { boards, activeBoardId, setActiveBoard, addBoard, updateBoard, deleteBoard, editing, startEditing, stopEditing } = useAppStore()
   const sortedBoards = getSortedBoards(boards)
   const activeBoard = activeBoardId ? boards[activeBoardId] : null
   const isEditingBoard = editing?.type === 'board' && editing.id === activeBoardId
@@ -22,7 +20,7 @@ function BoardSelector() {
       <EditableInput
         value=""
         onSave={(title) => {
-          addBoardMutation.mutate(title)
+          addBoard(title)
           setIsAdding(false)
         }}
         onCancel={() => setIsAdding(false)}
@@ -407,8 +405,7 @@ function AuthButton() {
 
 // Main App
 function App() {
-  const { cards, columns, activeBoardId, status, load, moveCard, moveColumn, editing, startEditing, stopEditing, initAuth } = useAppStore()
-  const resetMutation = useResetMutation()
+  const { cards, columns, activeBoardId, status, load, reset, moveCard, moveColumn, editing, startEditing, stopEditing, initAuth } = useAppStore()
 
   useEffect(() => {
     const unsubscribe = initAuth()
@@ -462,7 +459,7 @@ function App() {
           <BoardSelector />
           <div className="ml-auto flex items-center gap-2">
             <button
-              onClick={() => resetMutation.mutate()}
+              onClick={reset}
               className="text-sm text-gray-400 hover:text-gray-200 px-3 py-1 rounded hover:bg-gray-700"
             >
               Reset
