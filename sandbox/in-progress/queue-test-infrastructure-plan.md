@@ -159,3 +159,28 @@ Phase 4 (Better error messages) [Deferred]
 - Queue: Basic `enqueue()` with `persist()` wrapper in store
 - Tests: Optimistic UI only, no error checks, no persistence verification
 - Error handling: Raw server messages via `persist()` catch
+
+---
+
+## Known Issues
+
+### Issue 1: Brittle selectors clash with error notification
+**Problem:** Tests use `getByRole('button', { name: '×' })` which matches both error notification dismiss button and delete buttons.
+
+**Impact:** When error shows, tests fail with "strict mode violation: resolved to 2 elements"
+
+**Fix:** Use specific selectors like `getByTitle("Delete board")`
+
+---
+
+## Progress
+
+### Phase 1: UI Error Check in Tests
+- [x] 1.1 Add `data-testid="error-notification"`
+- [x] 1.2 Add `expectNoErrors` helper
+- [x] 1.3 Add afterEach to all spec files
+- [x] 1.4 Verified - fake error causes test failure
+- [x] 1.5 Remove fake error
+- [ ] 1.6 Add test for explicit error checking UI
+- [ ] 1.7 Fix brittle Optimistic UI tests, needs thorough review
+- [ ] 1.8 Test all changes, commit

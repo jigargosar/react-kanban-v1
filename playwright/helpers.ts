@@ -37,3 +37,7 @@ export async function login(page: Page, request: APIRequestContext) {
 export async function resetData(page: Page) {
   await page.getByRole("button", { name: "Reset" }).click();
 }
+
+export async function expectNoErrors(page: Page) {
+  await expect(page.getByTestId('error-notification')).toHaveCount(0);
+}
