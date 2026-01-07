@@ -77,6 +77,7 @@ function BoardSelector() {
       <button
         onClick={() => setIsAdding(true)}
         className="text-gray-400 hover:text-gray-200 px-2 py-1 rounded hover:bg-gray-700"
+        data-testid="add-board-button"
       >
         + New Board
       </button>
@@ -358,7 +359,7 @@ function AddColumnButton() {
 // Error notification
 function ErrorNotification() {
   const { error, clearError } = useAppStore()
-  if (!error) return null
+  if (error == null) return null
 
   return (
     <div data-testid="error-notification" className="fixed top-4 right-4 bg-red-600 text-white px-4 py-3 rounded shadow-lg flex items-center gap-3">
