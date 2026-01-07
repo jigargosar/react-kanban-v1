@@ -361,7 +361,7 @@ function ErrorNotification() {
   if (!error) return null
 
   return (
-    <div className="fixed top-4 right-4 bg-red-600 text-white px-4 py-3 rounded shadow-lg flex items-center gap-3">
+    <div data-testid="error-notification" className="fixed top-4 right-4 bg-red-600 text-white px-4 py-3 rounded shadow-lg flex items-center gap-3">
       <span>{error}</span>
       <button
         onClick={clearError}
