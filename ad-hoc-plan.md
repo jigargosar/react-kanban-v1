@@ -20,5 +20,5 @@
 
 **Pending:**
 - [ ] Add Prettier for formatting
-- [ ] Add `lint:check` / `lint:fix` scripts
+- [x] Add `lint:check` / `lint` (fix) scripts
 - [ ] Upgrade to `strictTypeChecked` after fixes
