@@ -77,7 +77,7 @@ type AppActions = {
 
 export const useAppStore = create<AppState & AppActions>((set, get) => {
   const persist = (fn: () => Promise<void>) => {
-    enqueue(fn).catch((e) => set({ error: (e as Error).message }))
+    enqueue(fn).catch((e: unknown) => { set({ error: e instanceof Error ? e.message : 'Unknown error' }); })
   }
 
   return {
@@ -98,7 +98,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => {
       const prevUser = get().user
       const newUser = session?.user
       const userData = newUser != null
-        ? { id: newUser.id, name: (newUser.user_metadata?.user_name as string | undefined) ?? newUser.email ?? null }
+        ? { id: newUser.id, name: (newUser.user_metadata.user_name as string | undefined) ?? newUser.email ?? null }
         : null
 
       switch (event) {
@@ -169,21 +169,21 @@ export const useAppStore = create<AppState & AppActions>((set, get) => {
     set({ status: 'loading' })
     api.fetchAll()
       .then(({ boards, columns, cards, activeBoardId: storedActiveBoardId }) => {
-        const boardsRecord = boards ?? {}
-        const sortedBoards = getSortedBoards(boardsRecord)
+        const sortedBoards = getSortedBoards(boards)
         // Use stored activeBoardId if valid, otherwise fall back to first board
-        const activeBoardId = (storedActiveBoardId != null && boardsRecord[storedActiveBoardId] != null)
+        const firstBoard = sortedBoards[0]
+        const activeBoardId = (storedActiveBoardId != null && boards[storedActiveBoardId] != null)
           ? storedActiveBoardId
-          : (sortedBoards.length > 0 ? sortedBoards[0].id : null)
+          : (firstBoard != null ? firstBoard.id : null)
         set({
-          boards: boardsRecord,
+          boards,
           activeBoardId,
-          columns: columns ?? {},
-          cards: cards ?? {},
+          columns,
+          cards,
           status: 'idle'
         })
       })
-      .catch((e: unknown) => set({ error: e instanceof Error ? e.message : 'Unknown error', status: 'idle' }))
+      .catch((e: unknown) => { set({ error: e instanceof Error ? e.message : 'Unknown error', status: 'idle' }); })
   },
 
   // Board actions
@@ -194,8 +194,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => {
       return
     }
     const sortedBoards = getSortedBoards(boards)
-    const lastPosition = sortedBoards.length > 0 ? sortedBoards[sortedBoards.length - 1].position : null
-    const newBoard = createBoard(user.id, title, lastPosition)
+    const lastBoard = sortedBoards[sortedBoards.length - 1]
+    const newBoard = createBoard(user.id, title, lastBoard?.position ?? null)
     console.log('[ ADD_BOARD] Adding board:', newBoard.id, 'title:', title)
     set({ boards: { ...boards, [newBoard.id]: newBoard }, activeBoardId: newBoard.id })
     persist(() => api.persistBoard(newBoard))
@@ -234,14 +234,15 @@ export const useAppStore = create<AppState & AppActions>((set, get) => {
     )
 
     // Remove board
-    const remainingBoards = { ...boards }
-    delete remainingBoards[boardId]
+    const remainingBoards = Object.fromEntries(
+      Object.entries(boards).filter(([id]) => id !== boardId)
+    )
 
     // Update active board if needed
     let newActiveBoardId = activeBoardId
     if (activeBoardId === boardId) {
       const sorted = getSortedBoards(remainingBoards)
-      newActiveBoardId = sorted.length > 0 ? sorted[0].id : null
+      newActiveBoardId = sorted[0]?.id ?? null
     }
 
     set({
@@ -263,8 +264,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => {
   addCard: (columnId, title) => {
     const { cards } = get()
     const columnCards = getColumnCards(cards, columnId)
-    const lastPosition = columnCards.length > 0 ? columnCards[columnCards.length - 1].position : null
-    const newCard = createCard(columnId, title, lastPosition)
+    const lastCard = columnCards[columnCards.length - 1]
+    const newCard = createCard(columnId, title, lastCard?.position ?? null)
     set({ cards: { ...cards, [newCard.id]: newCard } })
     persist(() => api.persistCard(newCard))
   },
@@ -280,8 +281,9 @@ export const useAppStore = create<AppState & AppActions>((set, get) => {
 
   deleteCard: (cardId) => {
     const { cards } = get()
-    const remaining = { ...cards }
-    delete remaining[cardId]
+    const remaining = Object.fromEntries(
+      Object.entries(cards).filter(([id]) => id !== cardId)
+    )
     set({ cards: remaining })
     persist(() => api.deleteCard(cardId))
   },
@@ -306,8 +308,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => {
     const { columns, activeBoardId } = get()
     if (activeBoardId == null) return
     const sortedColumns = getSortedColumns(columns, activeBoardId)
-    const lastPosition = sortedColumns.length > 0 ? sortedColumns[sortedColumns.length - 1].position : null
-    const newColumn = createColumn(activeBoardId, title, lastPosition)
+    const lastColumn = sortedColumns[sortedColumns.length - 1]
+    const newColumn = createColumn(activeBoardId, title, lastColumn?.position ?? null)
     set({ columns: { ...columns, [newColumn.id]: newColumn } })
     persist(() => api.persistColumn(newColumn))
   },
@@ -324,8 +326,9 @@ export const useAppStore = create<AppState & AppActions>((set, get) => {
   deleteColumn: (columnId) => {
     const { cards, columns } = get()
     // Delete column
-    const remainingColumns = { ...columns }
-    delete remainingColumns[columnId]
+    const remainingColumns = Object.fromEntries(
+      Object.entries(columns).filter(([id]) => id !== columnId)
+    )
     // Delete all cards in this column
     const remainingCards = Object.fromEntries(
       Object.entries(cards).filter(([, card]) => card.columnId !== columnId)
@@ -363,5 +366,5 @@ export const useAppStore = create<AppState & AppActions>((set, get) => {
     persist(() => api.resetAll())
   },
 
-  clearError: () => set({ error: null }),
+  clearError: () => { set({ error: null }); },
 }})

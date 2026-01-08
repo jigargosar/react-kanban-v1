@@ -12,7 +12,7 @@ test("error notification shows and can be dismissed", async ({ page, request }) 
     console.log(`[NET REQUEST] ${req.method()} ${req.url()}`);
   });
   page.on('response', res => {
-    console.log(`[NET RESPONSE] ${res.status()} ${res.url()}`);
+    console.log('[NET RESPONSE]', res.status(), res.url());
   });
 
   await login(page, request);
@@ -22,12 +22,12 @@ test("error notification shows and can be dismissed", async ({ page, request }) 
   console.log('[TEST] Setting up route intercept');
   await page.route('**/rest/**', async route => {
     console.log(`[TEST ROUTE] Intercepted: ${route.request().method()} ${route.request().url()}`);
-    const result = await route.fulfill({
+    await route.fulfill({
       status: 500,
       contentType: 'application/json',
       body: JSON.stringify({ message: 'Mocked server error' })
     });
-    console.log(`[TEST ROUTE] Fulfilled:`, result);
+    console.log(`[TEST ROUTE] Fulfilled`);
   });
   console.log('[TEST] Route intercept ready');
 

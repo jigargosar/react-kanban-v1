@@ -23,7 +23,7 @@ function BoardSelector() {
           addBoard(title)
           setIsAdding(false)
         }}
-        onCancel={() => setIsAdding(false)}
+        onCancel={() => { setIsAdding(false); }}
         className="bg-gray-700 text-gray-100 rounded px-3 py-1 outline-none w-48"
       />
     )
@@ -45,11 +45,11 @@ function BoardSelector() {
 
   return (
     <div className="flex items-center gap-2">
-      {sortedBoards.length > 0 ? (
+      {activeBoardId != null ? (
         <>
           <select
-            value={activeBoardId ?? ''}
-            onChange={(e) => setActiveBoard(e.target.value)}
+            value={activeBoardId}
+            onChange={(e) => { setActiveBoard(e.target.value); }}
             className="bg-gray-700 text-gray-100 rounded px-3 py-1 outline-none cursor-pointer"
           >
             {sortedBoards.map((board) => (
@@ -59,14 +59,14 @@ function BoardSelector() {
             ))}
           </select>
           <button
-            onClick={() => startEditing('board', activeBoardId!)}
+            onClick={() => { startEditing('board', activeBoardId); }}
             className="text-gray-400 hover:text-gray-200 p-1 rounded hover:bg-gray-700"
             title="Edit board"
           >
             ✎
           </button>
           <button
-            onClick={() => deleteBoard(activeBoardId!)}
+            onClick={() => { deleteBoard(activeBoardId); }}
             className="text-gray-400 hover:text-gray-200 p-1 rounded hover:bg-gray-700"
             title="Delete board"
           >
@@ -75,7 +75,7 @@ function BoardSelector() {
         </>
       ) : null}
       <button
-        onClick={() => setIsAdding(true)}
+        onClick={() => { setIsAdding(true); }}
         className="text-gray-400 hover:text-gray-200 px-2 py-1 rounded hover:bg-gray-700"
         data-testid="add-board-button"
       >
@@ -119,7 +119,7 @@ function EditableInput({
       ref={inputRef}
       type="text"
       value={text}
-      onChange={(e) => setText(e.target.value)}
+      onChange={(e) => { setText(e.target.value); }}
       onKeyDown={(e) => {
         if (e.key === 'Enter') handleSave()
         if (e.key === 'Escape') onCancel()
@@ -211,7 +211,7 @@ function AddCardInput({
       ref={inputRef}
       type="text"
       value={title}
-      onChange={(e) => setTitle(e.target.value)}
+      onChange={(e) => { setTitle(e.target.value); }}
       onKeyDown={(e) => {
         if (e.key === 'Enter') handleSubmit()
         if (e.key === 'Escape') onCancel()
@@ -295,13 +295,13 @@ function ColumnContent({
               card={card}
               isDragging={isDragging}
               isEditing={isCardEditing}
-              onStartEdit={() => startEditing('card', card.id)}
+              onStartEdit={() => { startEditing('card', card.id); }}
               onSaveEdit={(title) => {
                 updateCard(card.id, title)
                 stopEditing()
               }}
               onCancelEdit={stopEditing}
-              onDelete={() => deleteCard(card.id)}
+              onDelete={() => { deleteCard(card.id); }}
             />
           )
         }}
@@ -311,11 +311,11 @@ function ColumnContent({
           onAdd={(title) => {
             addCard(column.id, title)
           }}
-          onCancel={() => setIsAdding(false)}
+          onCancel={() => { setIsAdding(false); }}
         />
       ) : (
         <button
-          onClick={() => setIsAdding(true)}
+          onClick={() => { setIsAdding(true); }}
           className="text-gray-400 hover:text-gray-200 text-left p-2 rounded hover:bg-gray-700 transition-colors"
         >
           + Add card
@@ -339,7 +339,7 @@ function AddColumnButton() {
             addColumn(title)
             setIsAdding(false)
           }}
-          onCancel={() => setIsAdding(false)}
+          onCancel={() => { setIsAdding(false); }}
           className="w-full bg-gray-700 text-gray-100 rounded p-2 outline-none placeholder-gray-400"
         />
       </div>
@@ -348,7 +348,7 @@ function AddColumnButton() {
 
   return (
     <button
-      onClick={() => setIsAdding(true)}
+      onClick={() => { setIsAdding(true); }}
       className="bg-gray-800/50 hover:bg-gray-800 rounded-lg w-72 shrink-0 p-4 text-gray-400 hover:text-gray-200 text-left transition-colors"
     >
       + Add column
@@ -472,7 +472,7 @@ function App() {
               Create your first board to get started
             </div>
           ) : (
-            <Dnd.Root onDragOver={(info) => handleMove(info, false)} onDragEnd={(info) => handleMove(info, true)}>
+            <Dnd.Root onDragOver={(info) => { handleMove(info, false); }} onDragEnd={(info) => { handleMove(info, true); }}>
               <div className="flex gap-4 h-full">
                 <Dnd.ColumnList
                   columns={boardColumns}
@@ -493,13 +493,13 @@ function App() {
                         <ColumnHeader
                           column={column}
                           isEditing={isColumnEditing}
-                          onStartEdit={() => startEditing('column', column.id)}
+                          onStartEdit={() => { startEditing('column', column.id); }}
                           onSaveEdit={(title) => {
                             useAppStore.getState().updateColumn(column.id, title)
                             stopEditing()
                           }}
                           onCancelEdit={stopEditing}
-                          onDelete={() => useAppStore.getState().deleteColumn(column.id)}
+                          onDelete={() => { useAppStore.getState().deleteColumn(column.id); }}
                         />
                         <ColumnContent column={column} />
                       </div>

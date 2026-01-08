@@ -95,21 +95,24 @@ export function List<T>({
 
   return (
     <>
-      {sortedItems.map((item, index) => (
-        <ListItem
-          key={getId(item)}
-          item={item}
-          index={index}
-          getId={getId}
-          group={group}
-          prevId={index > 0 ? getId(sortedItems[index - 1]) : null}
-          type={type}
-          accept={accept}
-          collisionPriority={collisionPriority}
-        >
-          {children}
-        </ListItem>
-      ))}
+      {sortedItems.map((item, index) => {
+        const prevItem = sortedItems[index - 1]
+        return (
+          <ListItem
+            key={getId(item)}
+            item={item}
+            index={index}
+            getId={getId}
+            group={group}
+            prevId={prevItem != null ? getId(prevItem) : null}
+            type={type}
+            accept={accept}
+            collisionPriority={collisionPriority}
+          >
+            {children}
+          </ListItem>
+        )
+      })}
     </>
   )
 }
@@ -195,8 +198,12 @@ export function ColumnList<TColumn, TCard>({
     const map = new Map<string, TCard[]>()
     for (const card of arr) {
       const columnId = getCardColumnId(card)
-      if (!map.has(columnId)) map.set(columnId, [])
-      map.get(columnId)!.push(card)
+      const arr = map.get(columnId)
+      if (arr != null) {
+        arr.push(card)
+      } else {
+        map.set(columnId, [card])
+      }
     }
     // Sort each column's cards
     for (const [, columnCards] of map) {
@@ -210,8 +217,10 @@ export function ColumnList<TColumn, TCard>({
       {sortedColumns.map((column, index) => {
         const columnId = getColumnId(column)
         const columnCards = cardsByColumn.get(columnId) ?? []
-        const lastCardId = columnCards.length > 0 ? getCardId(columnCards[columnCards.length - 1]) : null
-        const prevColumnId = index > 0 ? getColumnId(sortedColumns[index - 1]) : null
+        const lastCard = columnCards[columnCards.length - 1]
+        const lastCardId = lastCard != null ? getCardId(lastCard) : null
+        const prevColumn = sortedColumns[index - 1]
+        const prevColumnId = prevColumn != null ? getColumnId(prevColumn) : null
 
         return (
           <ColumnListItem

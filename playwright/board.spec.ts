@@ -6,7 +6,7 @@ test.afterEach(async ({ page }) => {
 });
 
 test.beforeEach(async ({ page, request }) => {
-  page.on("console", (msg) => console.log(`[BROWSER] ${msg.text()}`));
+  page.on("console", (msg) => { console.log(`[BROWSER] ${msg.text()}`); });
   await login(page, request);
   await resetData(page);
 });

@@ -1,1 +1,1 @@
-- [ ] Upgrade to `strictTypeChecked` after fixes
+- [ ] Upgrade playwright/ to `strictTypeChecked` (currently `recommendedTypeChecked` - allows `!` assertions for bounding boxes)
