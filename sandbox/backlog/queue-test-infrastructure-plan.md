@@ -32,7 +32,7 @@ test.afterEach(async ({ page }) => {
 
 ---
 
-## Phase 2: Queue Error Collection
+## Phase 2: Queue Error Collection [Deferred]
 
 **Goal:** Collect errors in queue for reliable test verification.
 
@@ -87,7 +87,7 @@ test.afterEach(async ({ page }) => {
 
 ---
 
-## Phase 3: Persistence Verification
+## Phase 3: Persistence Verification [Deferred]
 
 **Goal:** Verify data persists to server via reload.
 
@@ -181,6 +181,6 @@ Phase 4 (Better error messages) [Deferred]
 - [x] 1.3 Add afterEach to all spec files
 - [x] 1.4 Verified - fake error causes test failure
 - [x] 1.5 Remove fake error
-- [ ] 1.6 Add test for explicit error checking UI
-- [ ] 1.7 Fix brittle Optimistic UI tests, needs thorough review
+- [x] 1.6 Add test for explicit error checking UI
+- [ ] TODO: 1.7 Fix brittle Optimistic UI tests, needs thorough review
 - [ ] 1.8 Test all changes, commit
