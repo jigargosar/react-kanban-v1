@@ -1,12 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
-import type { AuthChangeEvent, Session, User } from '@supabase/supabase-js'
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js'
 import type { Card, Column, Board, BoardId } from './model'
 import type { Database, Tables, TablesInsert } from './database.types'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-if (!supabaseUrl || !supabaseAnonKey) {
+if (supabaseUrl == null || supabaseAnonKey == null) {
   throw new Error('Missing Supabase environment variables')
 }
 
@@ -51,7 +51,7 @@ export async function persistBoard(board: Board): Promise<void> {
   const { error } = await supabase
     .from('boards')
     .upsert(fromBoard(board))
-  if (error) throw error
+  if (error != null) throw error
 }
 
 // Card operations
@@ -59,7 +59,7 @@ export async function persistCard(card: Card): Promise<void> {
   const { error } = await supabase
     .from('cards')
     .upsert(fromCard(card))
-  if (error) throw error
+  if (error != null) throw error
 }
 
 export async function deleteCard(cardId: string): Promise<void> {
@@ -67,7 +67,7 @@ export async function deleteCard(cardId: string): Promise<void> {
     .from('cards')
     .delete()
     .eq('id', cardId)
-  if (error) throw error
+  if (error != null) throw error
 }
 
 // Column operations
@@ -75,7 +75,7 @@ export async function persistColumn(column: Column): Promise<void> {
   const { error } = await supabase
     .from('columns')
     .upsert(fromColumn(column))
-  if (error) throw error
+  if (error != null) throw error
 }
 
 export async function deleteColumnCascade(columnId: string): Promise<void> {
@@ -83,7 +83,7 @@ export async function deleteColumnCascade(columnId: string): Promise<void> {
     .from('columns')
     .delete()
     .eq('id', columnId)
-  if (error) throw error
+  if (error != null) throw error
 }
 
 // Board cascade delete - CASCADE handles columns/cards
@@ -92,12 +92,14 @@ export async function deleteBoardCascade(boardId: string): Promise<void> {
     .from('boards')
     .delete()
     .eq('id', boardId)
-  if (error) throw error
+  if (error != null) throw error
 }
 
 // Active board (stays in localStorage - user preference)
 export async function persistActiveBoardId(boardId: BoardId): Promise<void> {
-  localStorage.setItem(ACTIVE_BOARD_KEY, boardId)
+  return Promise.resolve().then(() => {
+    localStorage.setItem(ACTIVE_BOARD_KEY, boardId)
+  })
 }
 
 // Fetch all data
@@ -113,9 +115,9 @@ export async function fetchAll(): Promise<{
     supabase.from('cards').select('*'),
   ])
 
-  if (boardsRes.error) throw boardsRes.error
-  if (columnsRes.error) throw columnsRes.error
-  if (cardsRes.error) throw cardsRes.error
+  if (boardsRes.error != null) throw boardsRes.error
+  if (columnsRes.error != null) throw columnsRes.error
+  if (cardsRes.error != null) throw cardsRes.error
 
   const boards = toRecord(boardsRes.data.map(toBoard))
   const columns = toRecord(columnsRes.data.map(toColumn))
@@ -128,21 +130,11 @@ export async function fetchAll(): Promise<{
 // Reset all data
 export async function resetAll(): Promise<void> {
   const { error } = await supabase.from('boards').delete().not('id', 'is', null)
-  if (error) throw error
+  if (error != null) throw error
   localStorage.removeItem(ACTIVE_BOARD_KEY)
 }
 
 // Auth
-export async function getUser(): Promise<User | null> {
-  const { data: { user } } = await supabase.auth.getUser()
-  return user
-}
-
-export async function getSession(): Promise<Session | null> {
-  const { data: { session } } = await supabase.auth.getSession()
-  return session
-}
-
 export async function signInWithGitHub(): Promise<void> {
   await supabase.auth.signInWithOAuth({ provider: 'github' })
 }

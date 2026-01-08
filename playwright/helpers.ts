@@ -1,6 +1,7 @@
-import { Page, APIRequestContext, expect } from "@playwright/test";
+import {type Page, type APIRequestContext, expect } from "@playwright/test";
 
 const SUPABASE_URL = "https://mbwrlksbjyhgvlwlaoov.supabase.co";
+// noinspection SpellCheckingInspection
 const SUPABASE_ANON_KEY = "sb_publishable_L4oOlvlOYny8CGcGiv9S1w_Vz9aLjmV";
 const SUPABASE_AUTH_KEY = "sb-mbwrlksbjyhgvlwlaoov-auth-token";
 
@@ -21,7 +22,7 @@ export async function login(page: Page, request: APIRequestContext) {
       },
     }
   );
-  const session = await response.json();
+  const session: unknown = await response.json();
 
   await page.addInitScript(
     ({ key, session }) => {

@@ -94,28 +94,75 @@ export const useAppStore = create<AppState & AppActions>((set, get) => {
   editing: null,
 
   initAuth: () => {
-    api.getSession().then((session) => {
-      const user = session?.user
-      set({
-        user: user ? { id: user.id, name: user.user_metadata?.user_name ?? user.email ?? null } : null,
-        authLoading: false,
-      })
-    })
+    return api.onAuthStateChange((event, session) => {
+      const prevUser = get().user
+      const newUser = session?.user
+      const userData = newUser != null
+        ? { id: newUser.id, name: (newUser.user_metadata?.user_name as string | undefined) ?? newUser.email ?? null }
+        : null
 
-    return api.onAuthStateChange((_event, session) => {
-      const user = session?.user
-      set({
-        user: user ? { id: user.id, name: user.user_metadata?.user_name ?? user.email ?? null } : null,
-      })
+      switch (event) {
+        case 'INITIAL_SESSION':
+          console.log('[AUTH] INITIAL_SESSION', { userId: userData?.id ?? null, sessionExists: session != null })
+          set({ user: userData, authLoading: false })
+          if (userData != null) {
+            get().load()
+          }
+          break
+
+        case 'SIGNED_IN':
+          console.log('[AUTH] SIGNED_IN', { prevUserId: prevUser?.id ?? null, newUserId: userData?.id ?? null })
+          if (prevUser?.id !== userData?.id) {
+            set({ user: userData })
+            if (userData != null) {
+              get().load()
+            }
+          }
+          break
+
+        case 'SIGNED_OUT':
+          console.log('[AUTH] SIGNED_OUT', { prevUserId: prevUser?.id ?? null })
+          set({
+            user: null,
+            boards: {},
+            columns: {},
+            cards: {},
+            activeBoardId: null
+          })
+          break
+
+        case 'TOKEN_REFRESHED':
+          console.log('[AUTH] TOKEN_REFRESHED', { userId: userData?.id ?? null })
+          // No action - Supabase handles tokens internally
+          break
+
+        case 'USER_UPDATED':
+          console.log('[AUTH] USER_UPDATED', { userId: userData?.id ?? null })
+          set({ user: userData })
+          break
+
+        case 'PASSWORD_RECOVERY':
+          console.log('[AUTH] PASSWORD_RECOVERY', { userId: userData?.id ?? null })
+          set({ user: userData })
+          break
+      }
     })
   },
 
   signIn: () => {
     api.signInWithGitHub()
+      .catch((e: unknown) => {
+        console.error('[AUTH] signIn failed', e)
+        set({ error: e instanceof Error ? e.message : 'Sign in failed' })
+      })
   },
 
   signOut: () => {
     api.signOut()
+      .catch((e: unknown) => {
+        console.error('[AUTH] signOut failed', e)
+        set({ error: e instanceof Error ? e.message : 'Sign out failed' })
+      })
   },
 
   load: () => {
@@ -125,7 +172,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => {
         const boardsRecord = boards ?? {}
         const sortedBoards = getSortedBoards(boardsRecord)
         // Use stored activeBoardId if valid, otherwise fall back to first board
-        const activeBoardId = (storedActiveBoardId && boardsRecord[storedActiveBoardId])
+        const activeBoardId = (storedActiveBoardId != null && boardsRecord[storedActiveBoardId] != null)
           ? storedActiveBoardId
           : (sortedBoards.length > 0 ? sortedBoards[0].id : null)
         set({
@@ -136,13 +183,13 @@ export const useAppStore = create<AppState & AppActions>((set, get) => {
           status: 'idle'
         })
       })
-      .catch((e) => set({ error: e.message, status: 'idle' }))
+      .catch((e: unknown) => set({ error: e instanceof Error ? e.message : 'Unknown error', status: 'idle' }))
   },
 
   // Board actions
   addBoard: (title) => {
     const { user, authLoading, boards } = get()
-    if (authLoading || !user) {
+    if (authLoading || user == null) {
       set({ error: 'Must be logged in to create a board' })
       return
     }
@@ -158,8 +205,8 @@ export const useAppStore = create<AppState & AppActions>((set, get) => {
   updateBoard: (boardId, title) => {
     const { boards } = get()
     const board = boards[boardId]
-    console.log('[UPDATE_BOARD] boardId:', boardId, 'title:', title, 'found:', !!board)
-    if (!board) return
+    console.log('[UPDATE_BOARD] boardId:', boardId, 'title:', title, 'found:', board != null)
+    if (board == null) return
     const updated = { ...board, title }
     set({ boards: { ...boards, [boardId]: updated } })
     console.log('[UPDATE_BOARD] State updated')
@@ -225,7 +272,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => {
   updateCard: (cardId, title) => {
     const { cards } = get()
     const card = cards[cardId]
-    if (!card) return
+    if (card == null) return
     const updated = { ...card, title }
     set({ cards: { ...cards, [cardId]: updated } })
     persist(() => api.persistCard(updated))
@@ -242,7 +289,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => {
   moveCard: ({ cardId, toColumnId, beforeId, afterId, persist: shouldPersist = true }) => {
     const { cards } = get()
     const card = cards[cardId]
-    if (!card) return
+    if (card == null) return
     const newPosition = calculatePositionBetween(cards, beforeId, afterId)
     if (card.columnId === toColumnId && card.position === newPosition) {
       return
@@ -257,7 +304,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => {
   // Column actions
   addColumn: (title) => {
     const { columns, activeBoardId } = get()
-    if (!activeBoardId) return
+    if (activeBoardId == null) return
     const sortedColumns = getSortedColumns(columns, activeBoardId)
     const lastPosition = sortedColumns.length > 0 ? sortedColumns[sortedColumns.length - 1].position : null
     const newColumn = createColumn(activeBoardId, title, lastPosition)
@@ -268,7 +315,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => {
   updateColumn: (columnId, title) => {
     const { columns } = get()
     const column = columns[columnId]
-    if (!column) return
+    if (column == null) return
     const updated = { ...column, title }
     set({ columns: { ...columns, [columnId]: updated } })
     persist(() => api.persistColumn(updated))
@@ -290,7 +337,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => {
   moveColumn: ({ columnId, beforeId, afterId, persist: shouldPersist = true }) => {
     const { columns } = get()
     const column = columns[columnId]
-    if (!column) return
+    if (column == null) return
     const newPosition = calculatePositionBetween(columns, beforeId, afterId)
     if (column.position === newPosition) return
     const updated = { ...column, position: newPosition }

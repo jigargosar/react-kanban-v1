@@ -5,7 +5,7 @@ import tailwindcss from '@tailwindcss/vite'
 import checker from 'vite-plugin-checker'
 
 export default defineConfig({
-  base: process.env.BASE_URL || '/',
+  base: process.env.BASE_URL ?? '/',
   build: {
     outDir: 'dist',
   },

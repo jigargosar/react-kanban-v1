@@ -4,7 +4,7 @@ import { useAppStore } from './store'
 import { Dnd, type MoveInfo } from './dnd'
 
 function assertNever(value: never, msg?: string): never {
-  throw new Error(msg ?? `Unexpected value: ${value}`)
+  throw new Error(msg ?? `Unexpected value: ${String(value)}`)
 }
 
 // Board selector dropdown
@@ -12,7 +12,7 @@ function BoardSelector() {
   const [isAdding, setIsAdding] = useState(false)
   const { boards, activeBoardId, setActiveBoard, addBoard, updateBoard, deleteBoard, editing, startEditing, stopEditing } = useAppStore()
   const sortedBoards = getSortedBoards(boards)
-  const activeBoard = activeBoardId ? boards[activeBoardId] : null
+  const activeBoard = activeBoardId != null ? boards[activeBoardId] : null
   const isEditingBoard = editing?.type === 'board' && editing.id === activeBoardId
 
   if (isAdding) {
@@ -29,12 +29,12 @@ function BoardSelector() {
     )
   }
 
-  if (isEditingBoard && activeBoard) {
+  if (isEditingBoard && activeBoard != null) {
     return (
       <EditableInput
         value={activeBoard.title}
         onSave={(title) => {
-          updateBoard(activeBoardId!, title)
+          updateBoard(activeBoardId, title)
           stopEditing()
         }}
         onCancel={stopEditing}
@@ -380,7 +380,7 @@ function AuthButton() {
 
   if (authLoading) return null
 
-  if (user) {
+  if (user != null) {
     return (
       <div className="flex items-center gap-2">
         <span className="text-gray-400 text-sm">{user.name}</span>
@@ -406,13 +406,11 @@ function AuthButton() {
 
 // Main App
 function App() {
-  const { cards, columns, activeBoardId, status, load, reset, moveCard, moveColumn, editing, startEditing, stopEditing, initAuth } = useAppStore()
+  const { cards, columns, activeBoardId, status, reset, moveCard, moveColumn, editing, startEditing, stopEditing, initAuth } = useAppStore()
 
   useEffect(() => {
-    const unsubscribe = initAuth()
-    load()
-    return unsubscribe
-  }, [initAuth, load])
+    return initAuth()
+  }, [initAuth])
 
   const handleMove = (info: MoveInfo, persist: boolean) => {
     switch (info.type) {
@@ -447,7 +445,7 @@ function App() {
   }
 
   // Filter columns for active board
-  const boardColumns = activeBoardId
+  const boardColumns = activeBoardId != null
     ? Object.fromEntries(Object.entries(columns).filter(([, col]) => col.boardId === activeBoardId))
     : {}
 
@@ -469,7 +467,7 @@ function App() {
           </div>
         </header>
         <div className="flex-1 overflow-x-auto overflow-y-hidden p-8 pt-4">
-          {!activeBoardId ? (
+          {activeBoardId == null ? (
             <div className="text-gray-400 text-center mt-8">
               Create your first board to get started
             </div>

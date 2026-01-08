@@ -40,17 +40,17 @@ export function Root({ onDragOver, onDragEnd, children }: RootProps) {
     <DragDropProvider
       sensors={[PointerSensor]}
       onDragOver={(event) => {
-        if (!onDragOver) return
+        if (onDragOver == null) return
         const { source, target } = event.operation
-        if (!source || !target) return
+        if (source == null || target == null) return
         if (source.type === 'column') return // columns don't trigger onDragOver
         onDragOver(constructMoveInfo(source, target))
       }}
       onDragEnd={(event) => {
-        if (!onDragEnd) return
+        if (onDragEnd == null) return
         if (event.canceled) return
         const { source, target } = event.operation
-        if (!source || !target) return
+        if (source == null || target == null) return
         onDragEnd(constructMoveInfo(source, target))
       }}
     >

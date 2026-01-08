@@ -98,8 +98,8 @@ export function calculatePositionBetween<T extends { id: string; position: strin
   beforeId: string | null,
   afterId: string | null
 ): string {
-  const beforePos = beforeId ? items[beforeId]?.position ?? null : null
-  const afterPos = afterId ? items[afterId]?.position ?? null : null
+  const beforePos = beforeId != null ? items[beforeId]?.position ?? null : null
+  const afterPos = afterId != null ? items[afterId]?.position ?? null : null
   return generateKeyBetween(beforePos, afterPos)
 }
 
