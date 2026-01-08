@@ -1,2 +1,1 @@
-- [ ] Add Prettier for formatting
 - [ ] Upgrade to `strictTypeChecked` after fixes
