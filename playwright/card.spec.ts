@@ -67,16 +67,8 @@ test("multiple cards", async ({ page }) => {
   await expect(cards.nth(1)).toContainText("Task 2");
   await expect(cards.nth(2)).toContainText("Task 3");
 
-  // Drag Task 3 above Task 1 using pointer events (dnd-kit uses pointer, not mouse)
-  const source = cards.nth(2);
-  const target = cards.nth(0);
-  const sourceBox = await source.boundingBox();
-  const targetBox = await target.boundingBox();
-
-  await page.mouse.move(sourceBox!.x + sourceBox!.width / 2, sourceBox!.y + sourceBox!.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(targetBox!.x + targetBox!.width / 2, targetBox!.y + targetBox!.height / 2, { steps: 10 });
-  await page.mouse.up();
+  // Drag Task 3 above Task 1
+  await cards.nth(2).dragTo(cards.nth(0), { steps: 10 });
 
   // Verify new order
   await expect(cards.nth(0)).toContainText("Task 3");

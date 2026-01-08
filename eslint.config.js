@@ -33,7 +33,7 @@ export default defineConfig([
     files: ['playwright/**/*.ts'],
     extends: [
       js.configs.recommended,
-      tseslint.configs.recommendedTypeChecked,
+      tseslint.configs.strictTypeChecked,
     ],
     languageOptions: {
       ecmaVersion: 'latest',
