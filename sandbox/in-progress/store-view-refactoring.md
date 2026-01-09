@@ -1,82 +1,88 @@
-## Boundary Analysis: App vs Store
+# Store-View Refactoring
 
-### Current Architecture Overview
+## Architecture
 
 | Layer | File | Responsibility |
 |-------|------|----------------|
-| Model | `model.ts` | Types, factory functions, pure queries |
-| API | `api.ts` | Supabase client, persistence, auth |
-| Store | `store.ts` | State + actions (zustand) |
+| Model | `model.ts` | Types, factories, pure queries |
+| API | `api.ts` | Supabase persistence, auth |
+| Store | `store.ts` | State + actions (Zustand) |
 | DnD | `dnd.tsx` | Drag-drop abstraction |
 | View | `App.tsx` | UI components |
 
----
+## Current Issues
 
-## Problems
+| # | Issue | Location | Status |
+|---|-------|----------|--------|
+| 1 | Inline filtering in view | `App.tsx:448-450` | Pending |
+| 2 | Direct `getState()` calls in callbacks | `App.tsx:498,502` | Pending |
+| 3 | Model function import in view | `App.tsx:2,14` | Pending |
+| 4 | No selector layer in store | `store.ts` | Pending |
 
-### 1. **View contains derived state logic**
-`App.tsx:449-451` filters columns for active board inline:
+### Details
+
+**#1 View contains derived state logic**
 ```tsx
-const boardColumns = activeBoardId
+const boardColumns = activeBoardId != null
   ? Object.fromEntries(Object.entries(columns).filter(([, col]) => col.boardId === activeBoardId))
   : {}
 ```
-**Issue**: This derivation belongs in store as a selector.
 
-### 2. **View calls `useAppStore.getState()` directly**
-`App.tsx:499,503`:
+**#2 Direct store access bypasses React subscriptions**
 ```tsx
-useAppStore.getState().updateColumn(...)
-useAppStore.getState().deleteColumn(...)
+useAppStore.getState().updateColumn(column.id, title)
+useAppStore.getState().deleteColumn(column.id)
 ```
-**Issue**: Direct store access bypasses React's subscription model. Should use hook-provided actions.
 
-### 3. **Model imports in View**
-`App.tsx:2` imports `getSortedBoards` from model and uses it in `BoardSelector`:
+**#3 View imports and calls model functions directly**
 ```tsx
+import { getSortedBoards } from './model'
 const sortedBoards = getSortedBoards(boards)
 ```
-**Issue**: Views should get sorted data from store selectors, not call model functions directly.
 
-### 4. **`dnd.tsx` is pure but has tight coupling to card/column types**
-`dnd.tsx:15` hardcodes `DndType = 'card' | 'column'` - this is okay since it's view-related.
+**#4 Store exposes raw records, views derive sorted/filtered lists**
 
-### 5. **No selector layer**
-Store exposes raw `cards`, `columns`, `boards` - views must derive sorted/filtered lists themselves.
+## Solutions
 
----
+| # | Solution |
+|---|----------|
+| 1 | Add `useActiveBoardColumns()` selector in store |
+| 2 | Pass actions via hook destructuring, not `getState()` |
+| 3 | Add `useSortedBoards()` selector, view imports from store only |
+| 4 | Add selector hooks: `useSortedBoards`, `useActiveBoardColumns`, `useColumnCards(colId)` |
 
-## Recommendations
-
-| # | Problem | Solution |
-|---|---------|----------|
-| 1 | Inline filtering in view | Add `getActiveBoardColumns` selector in store |
-| 2 | Direct `getState()` calls | Pass actions via hook destructuring |
-| 3 | Model imports in view | Add `getSortedBoards` selector in store, expose via hook |
-| 4 | No selector layer | Add computed selectors: `sortedBoards`, `activeBoardColumns`, `getColumnCards(colId)` |
-
-### Proposed Store Selectors
+### Selector Hooks Pattern
 
 ```ts
-// In store.ts, add selectors:
+// store.ts - add selectors
+export const useSortedBoards = () => useAppStore((s) => getSortedBoards(s.boards))
+
 export const useActiveBoardColumns = () => useAppStore((s) =>
-  s.activeBoardId
+  s.activeBoardId != null
     ? Object.fromEntries(Object.entries(s.columns).filter(([, c]) => c.boardId === s.activeBoardId))
     : {}
 )
-
-export const useSortedBoards = () => useAppStore((s) => getSortedBoards(s.boards))
 ```
 
-Then views import from store only, never from model.
+Views import from store only, never from model.
 
----
+### Scoped Hooks (Future)
+
+```tsx
+// Current: exposes everything
+const { boards, cards, columns, moveCard, ... } = useAppStore()
+
+// Better: scoped access
+const { cards, addCard, updateCard } = useCards()
+const { editing, startEditing, stopEditing } = useEditing()
+```
+
+Benefits: encapsulation, re-render optimization, clear API surface, refactoring safety.
 
 ## Summary
 
-The boundary is **mostly clean** but has a few leaks:
-1. ✅ API layer properly isolated
-2. ✅ Model has no side effects
-3. ⚠️ View does derived state computation that belongs in store
-4. ⚠️ View imports model functions directly
-5. ⚠️ Direct `getState()` calls in render callbacks
+- [x] API layer properly isolated
+- [x] Model has no side effects
+- [ ] View does derived state computation (belongs in store)
+- [ ] View imports model functions directly
+- [ ] Direct `getState()` calls in render callbacks
