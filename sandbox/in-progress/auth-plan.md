@@ -1,28 +1,48 @@
 # Auth Plan
 
-## Completed
+## Design
 
-1. ✅ Add `user_id` column to `boards` table only (columns/cards inherit via FK)
-2. ✅ Delete test data (removed seed.sql)
-3. ✅ Enable RLS on all tables
-4. ✅ Create RLS subquery policies
-5. ✅ Add indices for performance
-6. ✅ Update model/api/store to handle `user_id`
-7. ✅ Add test AuthButton component
+GitHub OAuth via Supabase Auth.
 
-## Remaining
+**Why GitHub OAuth:**
+- Free, unlimited (vs magic links 2/hour limit)
+- No email confirmation required
+- One-time setup, no ongoing costs
 
-1. Protect app routes
-   - Redirect to login if not authenticated
-   - Show loading state while checking session
+**Flow:**
+```
+User → "Login with GitHub" → GitHub consent → Supabase callback → App (authenticated)
+```
 
-2. Replace test AuthButton
-   - Proper login page or modal
-   - Handle auth errors
+**Data Model:**
+- `user_id` on `boards` only (columns/cards inherit via FK)
+- RLS subquery policies check ownership through parent
 
-3. Onboarding flow
-   - Create starter board on first login
-   - Set `onboarded` flag in user_metadata
+## Progress
 
-4. Test multi-user
-   - Create second GitHub account or use Supabase dashboard
+| # | Item | Status |
+|---|------|--------|
+| 1 | Add `user_id` column to `boards` table | ✅ Done |
+| 2 | Delete test data (removed seed.sql) | ✅ Done |
+| 3 | Enable RLS on all tables | ✅ Done |
+| 4 | Create RLS subquery policies | ✅ Done |
+| 5 | Add indices for performance | ✅ Done |
+| 6 | Update model/api/store to handle `user_id` | ✅ Done |
+| 7 | Add AuthButton component | ✅ Done |
+| 8 | Protect app routes (redirect if not auth) | Pending |
+| 9 | Proper login page or modal | Pending |
+| 10 | Onboarding flow (starter board on first login) | Pending |
+| 11 | Test multi-user | Pending |
+
+## Configuration
+
+| Service | Setting | Value |
+|---------|---------|-------|
+| GitHub OAuth App | Callback URL | `https://mbwrlksbjyhgvlwlaoov.supabase.co/auth/v1/callback` |
+| Supabase | Site URL | `http://localhost:5173` |
+| Supabase | Redirect URLs | `http://localhost:5173/**` |
+
+## Production
+
+- Create separate GitHub OAuth app with production callback URL
+- Update Supabase redirect URLs
