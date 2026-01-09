@@ -4,11 +4,22 @@
 
 Client-side filter to find cards by title.
 
+## Design Decisions
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Scope | Active board only | Simple, most common use case |
+| Filter behavior | Hide non-matching | Clean UI, less visual noise |
+| State location | Component-local | Simple, no need to persist |
+| Match highlighting | No | Keep it simple for MVP |
+| Empty state | "No cards match" | Clear feedback |
+| Keyboard shortcut | Deferred | Nice-to-have later |
+
 ## Design
 
-- Search input in header or board view
+- Search input in board view
 - Filter visible cards as user types
-- Highlight matches or dim non-matches
+- Hide non-matching cards
 - Clear search to show all
 
 ## UI Changes
