@@ -5,7 +5,7 @@
 * DB: `ON DELETE CASCADE`: DB handles referential integrity. Revisit if soft-delete needed.
 * Auth: GitHub OAuth — free, no email limits, Supabase handles flow.
 * Store as facade: Views access data through Zustand only, never direct API/TanStack.
-* TanStack Query: Handles race conditions, caching, request deduplication internally.
+* Simple sequential queue for mutations (`queue.ts`), preventing race conditions. TanStack Query deferred until caching/offline requirements emerge.
 * DB: Ownership via boards.user_id only. Columns/cards inherit via FK. Single source of truth, avoids inconsistency.
   * RLS subquery policies: Check ownership through parent chain. Indices ensure performance.
 * Onboarding: creates starter board only on first login
