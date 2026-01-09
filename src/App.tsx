@@ -269,16 +269,30 @@ function ColumnHeader({
 // Column content (cards list)
 function ColumnContent({
   column,
+  searchTerm,
 }: {
   column: Column
+  searchTerm: string
 }) {
   const [isAdding, setIsAdding] = useState(false)
   const { cards, editing, startEditing, stopEditing, updateCard, deleteCard, addCard } = useAppStore()
 
+  // Filter cards by search term
+  const columnCards = Object.entries(cards).filter(([, card]) => card.columnId === column.id)
+  const filteredCards = Object.fromEntries(
+    columnCards.filter(([, card]) =>
+      card.title.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  )
+  const hasCardsButNoMatch = searchTerm.length > 0 && columnCards.length > 0 && Object.keys(filteredCards).length === 0
+
   return (
     <div className="flex flex-col gap-2 overflow-y-auto flex-1 p-4 min-h-24">
+      {hasCardsButNoMatch && (
+        <div className="text-gray-500 text-sm p-2">No cards match</div>
+      )}
       <Dnd.List
-        items={cards}
+        items={filteredCards}
         getId={(c) => c.id}
         group={column.id}
         getGroupId={(c) => c.columnId}
@@ -404,9 +418,40 @@ function AuthButton() {
   )
 }
 
+// Search input
+function SearchInput({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <div className="relative">
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => { onChange(e.target.value); }}
+        placeholder="Search cards..."
+        className="bg-gray-700 text-gray-100 rounded px-3 py-1 pl-8 outline-none placeholder-gray-400 w-48"
+      />
+      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+      {value.length > 0 && (
+        <button
+          onClick={() => { onChange(''); }}
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200"
+        >
+          ×
+        </button>
+      )}
+    </div>
+  )
+}
+
 // Main App
 function App() {
   const { cards, columns, activeBoardId, status, reset, moveCard, moveColumn, editing, startEditing, stopEditing, initAuth } = useAppStore()
+  const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
     return initAuth()
@@ -456,6 +501,7 @@ function App() {
         <header className="p-8 pb-0 flex items-center gap-4">
           <h1 className="text-2xl font-bold text-gray-100">Kanban</h1>
           <BoardSelector />
+          {activeBoardId != null && editing == null && <SearchInput value={searchTerm} onChange={setSearchTerm} />}
           <div className="ml-auto flex items-center gap-2">
             <button
               onClick={reset}
@@ -501,7 +547,7 @@ function App() {
                           onCancelEdit={stopEditing}
                           onDelete={() => { useAppStore.getState().deleteColumn(column.id); }}
                         />
-                        <ColumnContent column={column} />
+                        <ColumnContent column={column} searchTerm={searchTerm} />
                       </div>
                     )
                   }}
