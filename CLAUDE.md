@@ -9,3 +9,12 @@ Using Supabase cloud, not local. No `supabase start`.
 # Testing
 
 - When testing using Chrome MCP in Claude code: Skip pointer/dnd browser testing. Has issues, wastes time. (FYI this applies only to slow non-repeatable chrome plugin of Claude code, nothing else.)
+
+# Sandbox Folder (`sandbox/`)
+
+Design docs and reference materials organized by status:
+
+- `backlog/` - Planned features not yet started
+- `in-progress/` - Active design/implementation docs
+- `done/` - Completed feature docs (for reference)
+- `external-ref/` - Third-party docs (zustand, dnd-kit, etc.)
