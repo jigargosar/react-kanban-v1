@@ -2,31 +2,53 @@
 
 ## Goal
 
-Find cards across all boards by title.
+Client-side filter to find cards by title.
 
-## UI
+## Design Decisions
 
-- Search box in header
-- Results dropdown/panel showing matching cards
-- Click result → navigate to board, highlight card
+| Decision           | Choice            | Rationale                    |
+|--------------------|-------------------|------------------------------|
+| Scope              | Active board only | Simple, most common use case |
+| Filter behavior    | Hide non-matching | Clean UI, less visual noise  |
+| State location     | Component-local   | Simple, no need to persist   |
+| Match highlighting | Pending           | Keep it simple for MVP       |
+| Empty state        | "No cards match"  | Clear feedback               |
+| Keyboard shortcut  | Pending           | Nice-to-have later           |
+
+## Design
+
+- Search input in board view
+- Filter visible cards as user types
+- Hide non-matching cards
+- Clear search to show all
+
+## UI Changes
+
+- Add search input (text field with placeholder "Search cards...")
+- Cards not matching filter: hide or dim
+- Show match count (e.g., "3 of 12 cards")
 
 ## Implementation
 
-### Phase 1: Client-side search
+```tsx
+// In store or component
+const [searchTerm, setSearchTerm] = useState('')
 
-1. Add search input to header
-2. Filter cards by title (case-insensitive contains)
-3. Show results with board/column context
-4. Click → `setActiveBoard(boardId)`, scroll to card
+const filteredCards = Object.values(cards).filter(card =>
+  card.title.toLowerCase().includes(searchTerm.toLowerCase())
+)
+```
 
-### Phase 2: Enhancements (Deferred)
+## Progress
 
-- Debounced input
-- Keyboard navigation (arrow keys, enter to select)
-- Search columns and boards too
-- Highlight matching text in results
-
-## Notes
-
-- Client-side only (all data already loaded)
-- No backend search needed for current scale
+| # | Item                                | Status  |
+|---|-------------------------------------|---------|
+| 1 | Add search input to UI              | Done    |
+| 2 | Add search state (store or local)   | Done    |
+| 3 | Filter cards by search term         | Done    |
+| 4 | Show/hide or dim non-matching cards | Done    |
+| 5 | Add clear search button             | Done    |
+| 6 | Show empty state message            | Done    |
+| 7 | Show match count                    | Pending |
+| 8 | Match highlighting                  | Pending |
+| 9 | Keyboard shortcut (Ctrl+F or /)     | Pending |
