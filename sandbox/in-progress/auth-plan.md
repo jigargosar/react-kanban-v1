@@ -46,3 +46,7 @@ User → "Login with GitHub" → GitHub consent → Supabase callback → App (a
 
 - Create separate GitHub OAuth app with production callback URL
 - Update Supabase redirect URLs
+                                                            
+
+## Unresolved Issues:
+* pre login screen shows invalid UI, needs to either show landing page, or login dialog. 
