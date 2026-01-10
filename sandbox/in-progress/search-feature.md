@@ -48,6 +48,7 @@ const filteredCards = Object.values(cards).filter(card =>
 | 3 | Filter cards by search term         | Done    |
 | 4 | Show/hide or dim non-matching cards | Done    |
 | 5 | Add clear search button             | Done    |
-| 6 | Show match count                    | Pending |
-| 7 | Match highlighting                  | Pending |
-| 8 | Keyboard shortcut (Ctrl+F or /)     | Pending |
+| 6 | Show empty state message            | Done    |
+| 7 | Show match count                    | Pending |
+| 8 | Match highlighting                  | Pending |
+| 9 | Keyboard shortcut (Ctrl+F or /)     | Pending |
