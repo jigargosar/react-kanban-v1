@@ -6,14 +6,14 @@ Client-side filter to find cards by title.
 
 ## Design Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Scope | Active board only | Simple, most common use case |
-| Filter behavior | Hide non-matching | Clean UI, less visual noise |
-| State location | Component-local | Simple, no need to persist |
-| Match highlighting | No | Keep it simple for MVP |
-| Empty state | "No cards match" | Clear feedback |
-| Keyboard shortcut | Deferred | Nice-to-have later |
+| Decision           | Choice            | Rationale                    |
+|--------------------|-------------------|------------------------------|
+| Scope              | Active board only | Simple, most common use case |
+| Filter behavior    | Hide non-matching | Clean UI, less visual noise  |
+| State location     | Component-local   | Simple, no need to persist   |
+| Match highlighting | Pending           | Keep it simple for MVP       |
+| Empty state        | "No cards match"  | Clear feedback               |
+| Keyboard shortcut  | Pending           | Nice-to-have later           |
 
 ## Design
 
@@ -41,11 +41,13 @@ const filteredCards = Object.values(cards).filter(card =>
 
 ## Progress
 
-| # | Item | Status |
-|---|------|--------|
-| 1 | Add search input to UI | Pending |
-| 2 | Add search state (store or local) | Pending |
-| 3 | Filter cards by search term | Pending |
-| 4 | Show/hide or dim non-matching cards | Pending |
-| 5 | Add clear search button | Pending |
-| 6 | Show match count | Pending |
+| # | Item                                | Status  |
+|---|-------------------------------------|---------|
+| 1 | Add search input to UI              | Done    |
+| 2 | Add search state (store or local)   | Done    |
+| 3 | Filter cards by search term         | Done    |
+| 4 | Show/hide or dim non-matching cards | Done    |
+| 5 | Add clear search button             | Done    |
+| 6 | Show match count                    | Pending |
+| 7 | Match highlighting                  | Pending |
+| 8 | Keyboard shortcut (Ctrl+F or /)     | Pending |
