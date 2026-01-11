@@ -91,7 +91,9 @@
 +-----+------------------------------+----------------------+-----------------------------------------------+
 ```
 
-## TypeScript Types (Nested Discriminated Union)
+## TypeScript Types (Recommended Approach)
+
+Nested discriminated unions to model the state hierarchy:
 
 ```typescript
 // Base types
@@ -145,16 +147,14 @@ type DraggingTarget =
   | { type: 'Column'; columnId: ColumnId }
 ```
 
-## Implementation Approach
+## Implementation Ideas
 
-### Pattern Matching Wrappers + Immer
+### Option: Pattern Matching Wrappers + Immer
 
-Instead of early returns or nested if-checks in each action, use wrapper functions that:
+One approach to reduce boilerplate in actions - wrapper functions that:
 1. Handle state pattern matching
 2. Only execute callback when state matches
 3. Leverage Zustand's immer middleware for clean mutations
-
-### Zustand + Immer Setup
 
 ```typescript
 import { create } from 'zustand'
@@ -166,7 +166,7 @@ const useAppStore = create(immer((set, get) => {
 }))
 ```
 
-### State Matching Wrappers
+### Example Wrappers
 
 ```typescript
 // Only runs when: Ready > HasBoard > Idle
@@ -210,9 +210,7 @@ const onIdleInteraction = (fn: (ready: HasBoardReady) => void) => {
 }
 ```
 
-### Action Usage
-
-Actions become flat - no guards, no returns, just mutations:
+### Example Action Usage
 
 ```typescript
 addCard: (columnId, title) => {
@@ -230,16 +228,6 @@ updateCard: (cardId, title) => {
   })
 }
 
-moveCard: ({ cardId, toColumnId, ... }) => {
-  onHasBoard(data => {
-    const card = data.cards[cardId]
-    if (card) {
-      card.columnId = toColumnId
-      card.position = newPosition
-    }
-  })
-}
-
 startEditing: (type, id) => {
   onIdleInteraction(ready => {
     ready.interaction = { type: 'Editing', editing: { type: 'Card', cardId: id } }
@@ -247,14 +235,14 @@ startEditing: (type, id) => {
 }
 ```
 
-### Benefits
+### Potential Benefits
 
-1. **No early returns** - wrapper handles state check, action only runs when valid
-2. **No nested ifs** - single wrapper call
-3. **No manual immutability** - immer middleware handles spreads
-4. **Flat action bodies** - just mutations, easy to read
-5. **Type safety** - callback receives narrowed types
-6. **Single source of truth** - state checks defined once in wrappers
+1. No early returns - wrapper handles state check
+2. No nested ifs - single wrapper call
+3. No manual immutability - immer handles spreads
+4. Flat action bodies - just mutations
+5. Type safety - callback receives narrowed types
+6. Single source of truth - state checks defined once in wrappers
 
 ## Notes
 
@@ -262,3 +250,32 @@ startEditing: (type, id) => {
 - Validation utilities shared across UI contexts (inline edit, dialog, etc.)
 - Form field state is component-local, store only knows "editing entity X"
 - On submit, all fields go to store at once
+
+## Option: Prop Drilling for ISI
+
+An alternative to selector hooks - prop drilling for stricter type-level guarantees:
+
+```typescript
+// Helper to extract data or null
+function getBoardData(state: AppState): BoardData | null {
+  if (state.type === 'Ready' && state.ready.type === 'HasBoard') {
+    return state.ready.data
+  }
+  return null
+}
+
+// App.tsx guards once, drills props
+const data = getBoardData(state)
+if (data == null) return <Loading />
+return <BoardView {...data} />
+
+// Children receive guaranteed typed props, no selectors
+function BoardView({ boards, cards, columns }: BoardData) {
+  // Type proves data exists
+}
+```
+
+Potential benefits:
+- ISI at type level, not runtime guards
+- Ugly state check in one place
+- Components receive clean typed props
