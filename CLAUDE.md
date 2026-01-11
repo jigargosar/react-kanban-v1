@@ -10,6 +10,10 @@ Using Supabase cloud, not local. No `supabase start`.
 
 - When testing using Chrome MCP in Claude code: Skip pointer/dnd browser testing. Has issues, wastes time. (FYI this applies only to slow non-repeatable chrome plugin of Claude code, nothing else.)
 
+# Code Review
+
+See `code-review-report.md` for already-addressed issues.
+
 # Sandbox Folder (`sandbox/`)
 
 Design docs and reference materials organized by status:

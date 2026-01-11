@@ -147,3 +147,110 @@ pending = result.catch(() => {}) // Continue chain even on failure
 **Why problematic:** Adds async overhead for sync operation.
 
 **Direction:** This appears intentional - keeps API consistent (all persist functions are async) so they can be enqueued uniformly. Acceptable if that's the design choice.
+
+---
+
+# Code Review Round 2
+
+## High Confidence
+
+### 13. dnd.tsx:7-14 - MoveInfo.type is string but should be discriminated union
+**Tags:** `bug-risk`, `readability`
+
+**What:** `MoveInfo.type` is typed as `string` but only `'card'` or `'column'` are valid values.
+
+**Why problematic:** The `assertNever` in `App.tsx` line 480 casts to `never` but the type system doesn't enforce exhaustiveness because `type` is `string`. A typo or new type would silently fall through at runtime.
+
+**Direction:** Change `type: string` to `type: 'card' | 'column'` in `MoveInfo`.
+
+---
+
+### 14. App.tsx:32-43 - BoardSelector can call updateBoard with null activeBoardId
+**Tags:** `bug-risk`, `maintenance`
+
+**What:** When `isEditingBoard && activeBoard != null`, `updateBoard(activeBoardId, title)` is called, but TypeScript doesn't narrow `activeBoardId` to non-null (only `activeBoard` is checked).
+
+**Why problematic:** While logically safe (activeBoard derives from activeBoardId), passing potentially-null value is fragile. If someone refactors how `activeBoard` is derived, this could silently pass `null`.
+
+**Direction:** Extract active board ID from the non-null board: `updateBoard(activeBoard.id, title)`.
+
+---
+
+### 15. App.tsx - Fragile State: isAdding states in multiple components are independent of editing state
+**Tags:** `complexity`, `bug-risk`
+
+**What:** `BoardSelector`, `ColumnContent`, and `AddColumnButton` each have independent `isAdding` state. These don't coordinate with the global `editing` state.
+
+**Why problematic:** User can start adding a board (local `isAdding=true`) then double-click a card to edit it (global `editing` set). Now both UI states are active simultaneously.
+
+**Direction:** Consider whether add-flows should also go through global `editing` state, or document that concurrent add+edit is intentional.
+
+---
+
+### 16. store.ts:105-149 - initAuth switch doesn't handle all AuthChangeEvent values
+**Tags:** `maintenance`, `bug-risk`
+
+**What:** The switch handles `INITIAL_SESSION`, `SIGNED_IN`, `SIGNED_OUT`, `TOKEN_REFRESHED`, `USER_UPDATED`, `PASSWORD_RECOVERY`. But Supabase's `AuthChangeEvent` type may include other values like `MFA_CHALLENGE_VERIFIED`.
+
+**Why problematic:** New auth events will silently do nothing. While this may be intentional, there's no `default` case with logging/acknowledgment.
+
+**Direction:** Add `default` case that at minimum logs unknown events for debugging.
+
+---
+
+## Medium Confidence
+
+### 17. model.ts:86-94 - calculatePositionBetween doesn't validate that beforeId/afterId exist
+**Tags:** `bug-risk`
+
+**What:** If `beforeId` or `afterId` refers to a non-existent item, `items[beforeId]?.position` returns `undefined`, then `?? null` makes it null. This silently treats missing items as "position at end/start."
+
+**Why problematic:** If a caller passes stale IDs (e.g., from race conditions during drag), the position calculation could be wrong without any error.
+
+**Direction:** Either: (1) throw if IDs don't exist, or (2) document that missing IDs are treated as null (intentional behavior).
+
+---
+
+### 18. store.ts:80-82 - persist wrapper swallows context about which operation failed
+**Tags:** `maintenance`, `readability`
+
+**What:** Errors are caught and stored as generic `error` string. The user sees "Unknown error" or the error message, but doesn't know which operation failed.
+
+**Why problematic:** Debugging production issues is harder when all operations funnel to the same error state.
+
+**Direction:** Consider wrapping operations with context: `set({ error: \`Failed to ${operation}: ${message}\` })`.
+
+---
+
+### 19. dnd.tsx:183 - Magic number: CollisionPriority.Low in ColumnList
+**Tags:** `maintenance`, `readability`
+
+**What:** Default collision priority is `CollisionPriority.Low` without explanation.
+
+**Why problematic:** The intent behind choosing `Low` vs other priorities isn't documented.
+
+**Direction:** Add comment explaining why Low priority is appropriate for columns.
+
+---
+
+### 20. api.ts:21-23 - toRecord assumes all items have unique IDs
+**Tags:** `bug-risk`
+
+**What:** `Object.fromEntries` will silently overwrite if duplicate IDs exist.
+
+**Why problematic:** Database constraints should prevent this, but if data corruption occurs, the bug would be subtle (last-write-wins).
+
+**Direction:** Either document the assumption or add validation.
+
+---
+
+## Low Confidence
+
+### 21. App.tsx:284 - Search term comparison may not handle unicode properly
+**Tags:** `maintenance`
+
+**What:** `toLowerCase()` may not handle all unicode edge cases (e.g., Turkish i).
+
+**Why it's likely fine:** For a kanban app, this edge case is extremely unlikely to matter.
+
+**Direction:** If internationalization becomes important, consider `toLocaleLowerCase()` or proper unicode-aware comparison.
