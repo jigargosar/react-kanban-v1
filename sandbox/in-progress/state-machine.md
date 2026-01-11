@@ -137,10 +137,9 @@ const useAppStore = create(immer<StoreState>((set, get) => ({
 
 ### State Guards
 
-No early returns. Use helper callbacks that encapsulate `set`:
+Helpers encapsulate `set()` + state check. Callback only runs if state matches:
 
 ```typescript
-// Helper encapsulates set + state check
 const whenIdle = (fn: (data: BoardData, user: User) => void) => {
   set(s => {
     if (s.state.type === 'Ready.HasBoard.Idle') {
@@ -149,30 +148,53 @@ const whenIdle = (fn: (data: BoardData, user: User) => void) => {
   })
 }
 
-// Action body is just mutation logic
-// Persist inside callback - only runs if state matched
+// Usage - mutation + persist inside callback
 addCard: (columnId, title) => {
   whenIdle((data, user) => {
-    const newCard = createCard(user.id, columnId, title)
     data.cards[newCard.id] = newCard
     persist(() => api.persistCard(newCard))
   })
 }
+```
 
-// For state transitions, pass full state variant
-const whenIdleState = (fn: (state: ReadyHasBoardIdleState) => void) => {
-  set(s => {
-    if (s.state.type === 'Ready.HasBoard.Idle') {
-      fn(s.state)
-    }
-  })
+### Multi-State Matching
+
+Flat union enables `.startsWith()` for matching state groups:
+
+```typescript
+if (t === 'LoggedIn' || t === 'DataLoading' || t.startsWith('Ready.')) {
+  // matches all authenticated states
 }
+```
 
-startEditing: (entityId) => {
-  whenIdleState(state => {
-    // Can replace entire state for transition
-    s.state = { ...state, type: 'Ready.HasBoard.Editing', editingId: entityId }
-  })
+### Async Actions
+
+Can't `await` inside `set()` (immer draft is sync). Use multiple `set()` calls:
+
+```typescript
+load: async () => {
+  const user = getLoggedInUser()
+  if (user) {
+    set(s => { s.state = { type: 'DataLoading', user } })
+    const result = await api.fetchAll()
+    set(s => {
+      if (s.state.type === 'DataLoading') {
+        s.state = createReadyState(user, result)
+      }
+    })
+  }
+}
+```
+
+### API Triggers
+
+Actions that only call external APIs don't need `set()` wrapper:
+
+```typescript
+signIn: () => {
+  if (get().state.type === 'LoggedOut') {
+    api.signInWithGitHub()
+  }
 }
 ```
 
