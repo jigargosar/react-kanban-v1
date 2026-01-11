@@ -137,31 +137,40 @@ const useAppStore = create(immer<StoreState>((set, get) => ({
 
 ### State Guards
 
-No early returns. Use `if` checks or helper callbacks:
+No early returns. Use helper callbacks that encapsulate `set`:
 
 ```typescript
-// Simple if check
-addCard: (columnId, title) => {
+// Helper encapsulates set + state check
+const whenIdle = (fn: (data: BoardData, user: User) => void) => {
   set(s => {
     if (s.state.type === 'Ready.HasBoard.Idle') {
-      const newCard = createCard(columnId, title)
-      s.state.data.cards[newCard.id] = newCard
+      fn(s.state.data, s.state.user)
     }
   })
 }
 
-// Or helper callback pattern
-const whenIdle = (s: StoreState, fn: (data: BoardData) => void) => {
-  if (s.state.type === 'Ready.HasBoard.Idle') {
-    fn(s.state.data)
-  }
+// Action body is just mutation logic
+addCard: (columnId, title) => {
+  whenIdle((data, user) => {
+    const newCard = createCard(user.id, columnId, title)
+    data.cards[newCard.id] = newCard
+  })
 }
 
-addCard: (columnId, title) => {
-  set(s => whenIdle(s, data => {
-    const newCard = createCard(columnId, title)
-    data.cards[newCard.id] = newCard
-  }))
+// For state transitions, pass full state variant
+const whenIdleState = (fn: (state: ReadyHasBoardIdleState) => void) => {
+  set(s => {
+    if (s.state.type === 'Ready.HasBoard.Idle') {
+      fn(s.state)
+    }
+  })
+}
+
+startEditing: (entityId) => {
+  whenIdleState(state => {
+    // Can replace entire state for transition
+    s.state = { ...state, type: 'Ready.HasBoard.Editing', editingId: entityId }
+  })
 }
 ```
 
