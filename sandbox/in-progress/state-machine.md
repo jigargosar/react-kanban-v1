@@ -150,10 +150,12 @@ const whenIdle = (fn: (data: BoardData, user: User) => void) => {
 }
 
 // Action body is just mutation logic
+// Persist inside callback - only runs if state matched
 addCard: (columnId, title) => {
   whenIdle((data, user) => {
     const newCard = createCard(user.id, columnId, title)
     data.cards[newCard.id] = newCard
+    persist(() => api.persistCard(newCard))
   })
 }
 
