@@ -145,6 +145,117 @@ type DraggingTarget =
   | { type: 'Column'; columnId: ColumnId }
 ```
 
+## Implementation Approach
+
+### Pattern Matching Wrappers + Immer
+
+Instead of early returns or nested if-checks in each action, use wrapper functions that:
+1. Handle state pattern matching
+2. Only execute callback when state matches
+3. Leverage Zustand's immer middleware for clean mutations
+
+### Zustand + Immer Setup
+
+```typescript
+import { create } from 'zustand'
+import { immer } from 'zustand/middleware/immer'
+
+const useAppStore = create(immer((set, get) => {
+  // Wrappers defined inside store creator
+  // Actions use wrappers
+}))
+```
+
+### State Matching Wrappers
+
+```typescript
+// Only runs when: Ready > HasBoard > Idle
+const onIdle = (fn: (data: BoardData) => void) => {
+  set(s => {
+    if (s.state.type === 'Ready' &&
+        s.state.ready.type === 'HasBoard' &&
+        s.state.ready.interaction.type === 'Idle') {
+      fn(s.state.ready.data)
+    }
+  })
+}
+
+// Only runs when: Ready > HasBoard (any interaction)
+const onHasBoard = (fn: (data: BoardData) => void) => {
+  set(s => {
+    if (s.state.type === 'Ready' && s.state.ready.type === 'HasBoard') {
+      fn(s.state.ready.data)
+    }
+  })
+}
+
+// Only runs when: Ready (NoBoard or HasBoard)
+const onReady = (fn: (state: ReadyState) => void) => {
+  set(s => {
+    if (s.state.type === 'Ready') {
+      fn(s.state)
+    }
+  })
+}
+
+// For actions that modify interaction state
+const onIdleInteraction = (fn: (ready: HasBoardReady) => void) => {
+  set(s => {
+    if (s.state.type === 'Ready' &&
+        s.state.ready.type === 'HasBoard' &&
+        s.state.ready.interaction.type === 'Idle') {
+      fn(s.state.ready)
+    }
+  })
+}
+```
+
+### Action Usage
+
+Actions become flat - no guards, no returns, just mutations:
+
+```typescript
+addCard: (columnId, title) => {
+  const newCard = createCard(columnId, title, ...)
+  onIdle(data => {
+    data.cards[newCard.id] = newCard
+  })
+  persistAsync(() => api.persistCard(newCard))
+}
+
+updateCard: (cardId, title) => {
+  onHasBoard(data => {
+    const card = data.cards[cardId]
+    if (card) card.title = title
+  })
+}
+
+moveCard: ({ cardId, toColumnId, ... }) => {
+  onHasBoard(data => {
+    const card = data.cards[cardId]
+    if (card) {
+      card.columnId = toColumnId
+      card.position = newPosition
+    }
+  })
+}
+
+startEditing: (type, id) => {
+  onIdleInteraction(ready => {
+    ready.interaction = { type: 'Editing', editing: { type: 'Card', cardId: id } }
+  })
+}
+```
+
+### Benefits
+
+1. **No early returns** - wrapper handles state check, action only runs when valid
+2. **No nested ifs** - single wrapper call
+3. **No manual immutability** - immer middleware handles spreads
+4. **Flat action bodies** - just mutations, easy to read
+5. **Type safety** - callback receives narrowed types
+6. **Single source of truth** - state checks defined once in wrappers
+
 ## Notes
 
 - Validation belongs in components, not store
