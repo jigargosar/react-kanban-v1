@@ -76,6 +76,7 @@ type AppActions = {
 }
 
 export const useAppStore = create<AppState & AppActions>((set, get) => {
+  // Fire-and-forget: void return is intentional - callers use optimistic updates
   const persist = (fn: () => Promise<void>) => {
     enqueue(fn).catch((e: unknown) => { set({ error: e instanceof Error ? e.message : 'Unknown error' }); })
   }

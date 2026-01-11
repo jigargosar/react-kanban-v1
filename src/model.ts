@@ -82,16 +82,6 @@ export function getSortedBoards(boards: Record<BoardId, Board>): Board[] {
   return Object.values(boards).sort((a, b) => (a.position < b.position ? -1 : a.position > b.position ? 1 : 0))
 }
 
-// Calculate position for inserting at target index (legacy)
-export function calculatePosition(
-  sortedItems: { position: string }[],
-  targetIndex: number
-): string {
-  const before = sortedItems[targetIndex - 1]?.position ?? null
-  const after = sortedItems[targetIndex]?.position ?? null
-  return generateKeyBetween(before, after)
-}
-
 // Calculate position between two items by their ids
 export function calculatePositionBetween<T extends { id: string; position: string }>(
   items: Record<string, T>,

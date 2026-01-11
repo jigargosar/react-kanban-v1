@@ -450,7 +450,7 @@ function SearchInput({
 
 // Main App
 function App() {
-  const { cards, columns, activeBoardId, status, reset, moveCard, moveColumn, editing, startEditing, stopEditing, initAuth } = useAppStore()
+  const { cards, columns, activeBoardId, status, reset, moveCard, moveColumn, editing, startEditing, stopEditing, initAuth, updateColumn, deleteColumn } = useAppStore()
   const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
@@ -541,11 +541,11 @@ function App() {
                           isEditing={isColumnEditing}
                           onStartEdit={() => { startEditing('column', column.id); }}
                           onSaveEdit={(title) => {
-                            useAppStore.getState().updateColumn(column.id, title)
+                            updateColumn(column.id, title)
                             stopEditing()
                           }}
                           onCancelEdit={stopEditing}
-                          onDelete={() => { useAppStore.getState().deleteColumn(column.id); }}
+                          onDelete={() => { deleteColumn(column.id); }}
                         />
                         <ColumnContent column={column} searchTerm={searchTerm} />
                       </div>

@@ -88,11 +88,6 @@ export function List<T>({
     return arr.filter((item) => getGroupId(item) === group).sort(compare)
   }, [items, group, getGroupId, compare])
 
-  // For columns, we need to pass lastCardId - but we don't have cards here
-  // This is handled by the column's useSortable data being set externally
-  // Actually, columns need access to cards to compute lastCardId
-  // This is a design issue - List doesn't know about other lists' items
-
   return (
     <>
       {sortedItems.map((item, index) => {
@@ -198,9 +193,9 @@ export function ColumnList<TColumn, TCard>({
     const map = new Map<string, TCard[]>()
     for (const card of arr) {
       const columnId = getCardColumnId(card)
-      const arr = map.get(columnId)
-      if (arr != null) {
-        arr.push(card)
+      const existing = map.get(columnId)
+      if (existing != null) {
+        existing.push(card)
       } else {
         map.set(columnId, [card])
       }
