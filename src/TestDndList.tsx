@@ -192,16 +192,18 @@ const initialBoxes: Box[] = [
   { id: 'box-a', shelfId: 'shelf-1', position: 'a' },
   { id: 'box-b', shelfId: 'shelf-1', position: 'b' },
   { id: 'box-c', shelfId: 'shelf-1', position: 'c' },
-  { id: 'box-d', shelfId: 'shelf-2', position: 'a' },
-  { id: 'box-e', shelfId: 'shelf-2', position: 'b' },
+  // shelf-2 starts empty to test empty group drops
 ]
 
 function NestedList() {
   const [shelves] = useState(initialShelves)
   const [boxes] = useState(initialBoxes)
 
-  const handleMove = (info: MoveInfo) => {
-    console.log('NestedList move:', info)
+  const handleDragOver = (info: MoveInfo) => {
+    console.log('NestedList dragOver:', info)
+  }
+  const handleDragEnd = (info: MoveInfo) => {
+    console.log('NestedList dragEnd:', info)
   }
 
   return (
@@ -209,8 +211,8 @@ function NestedList() {
       <h3>Nested List (shelves with boxes)</h3>
       <DndList.Root
         config={{
-          onDragOver: handleMove,
-          onDragEnd: handleMove,
+          onDragOver: handleDragOver,
+          onDragEnd: handleDragEnd,
         }}
       >
         <DndList.List
@@ -237,34 +239,43 @@ function NestedList() {
               }}
             >
               <div style={{ marginBottom: 8 }}>▣ {shelf.id}</div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <DndList.List
-                  config={{
-                    items: boxes,
-                    getId: (b) => b.id,
-                    getGroupId: (b) => b.shelfId,
-                    groupId: shelf.id,
-                    compare: (a, b) => (a.position < b.position ? -1 : 1),
-                    draggableTypeId: 'box',
-                    acceptsDraggableTypes: ['box'],
-                    collisionPriority: CollisionPriority.High,
-                  }}
-                >
-                  {({ ref, item: box, isDragging }) => (
-                    <div
-                      ref={ref}
-                      style={{
-                        opacity: isDragging ? 0.5 : 1,
-                        padding: 8,
-                        background: '#555',
-                        borderRadius: 4,
+              <DndList.Group
+                config={{
+                  groupId: shelf.id,
+                  accept: ['box'],
+                }}
+              >
+                {({ ref: groupRef, isDropTarget }) => (
+                  <div ref={groupRef} style={{ display: 'flex', gap: 8, minHeight: 40, background: isDropTarget ? '#444' : 'transparent', borderRadius: 4 }}>
+                    <DndList.List
+                      config={{
+                        items: boxes,
+                        getId: (b) => b.id,
+                        getGroupId: (b) => b.shelfId,
+                        groupId: shelf.id,
+                        compare: (a, b) => (a.position < b.position ? -1 : 1),
+                        draggableTypeId: 'box',
+                        acceptsDraggableTypes: ['box'],
+                        collisionPriority: CollisionPriority.High,
                       }}
                     >
-                      □ {box.id}
-                    </div>
-                  )}
-                </DndList.List>
-              </div>
+                      {({ ref, item: box, isDragging }) => (
+                        <div
+                          ref={ref}
+                          style={{
+                            opacity: isDragging ? 0.5 : 1,
+                            padding: 8,
+                            background: '#555',
+                            borderRadius: 4,
+                          }}
+                        >
+                          □ {box.id}
+                        </div>
+                      )}
+                    </DndList.List>
+                  </div>
+                )}
+              </DndList.Group>
             </div>
           )}
         </DndList.List>

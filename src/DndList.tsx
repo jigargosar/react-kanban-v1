@@ -23,6 +23,7 @@ type RootProps = {
 }
 
 const GROUP_TYPE = Symbol('dndlist-group')
+const GROUP_ID_SUFFIX = '::group'
 
 function constructMoveInfo(
   source: { id: unknown; type: unknown },
@@ -32,10 +33,13 @@ function constructMoveInfo(
   const isGroupTarget = target.type === GROUP_TYPE
   const isParentTarget = targetData.lastChildId !== undefined
 
+  const targetId = String(target.id)
+  const groupId = isGroupTarget ? targetId.replace(GROUP_ID_SUFFIX, '') : targetId
+
   return {
     itemId: String(source.id),
     draggableTypeId: String(source.type),
-    toGroupId: isGroupTarget ? String(target.id) : (isParentTarget ? String(target.id) : (targetData.groupId ?? '')),
+    toGroupId: isGroupTarget ? groupId : (isParentTarget ? groupId : (targetData.groupId ?? '')),
     beforeId: isGroupTarget ? null : (isParentTarget ? (targetData.lastChildId ?? null) : (targetData.prevId ?? null)),
     afterId: isGroupTarget || isParentTarget ? null : String(target.id),
   }
@@ -174,7 +178,7 @@ function Group({ config, children }: GroupProps) {
   const { groupId, accept } = config
 
   const { ref, isDropTarget } = useDroppable({
-    id: groupId,
+    id: groupId + GROUP_ID_SUFFIX,
     type: GROUP_TYPE,
     accept,
     collisionPriority: CP.Low,
