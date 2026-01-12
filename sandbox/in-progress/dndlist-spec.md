@@ -49,17 +49,6 @@ Both callbacks receive `MoveInfo`:
 - Two `DndList.List` - one for shelves, one for boxes
 - Shelf ID becomes box's `groupId`
 
-## 5. Index to ID Conversion
-1. Client provides: items, sort function, getId function
-2. DndList computes: sorted order, `prevId` per item
-3. DndList stores `prevId` in dnd-kit's data bag
-4. On drop, DndList retrieves target's `prevId` → `beforeId`, target's `id` → `afterId`
-
-## 6. Type System
-1. `draggableTypeId` and `acceptsDraggableTypes` are client-defined strings
-2. DndList is agnostic - no hardcoded type literals
-3. Client controls which types can drop on which
-
 ## Approach
 1. Write `TestDndList.tsx` with desired API usage
 2. Create `DndList.tsx` with type stubs (empty implementations)
