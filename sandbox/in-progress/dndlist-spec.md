@@ -36,12 +36,19 @@ Output structure:
 3. Module stores `prevId` in dnd-kit's data bag
 4. On drop, module retrieves target's `prevId` → `beforeId`, target's `id` → `afterId`
 
-## 7. Item Configuration
-All explicit, no optionals:
-- `id` - unique identifier
+## 7. Configuration
+
+### Root Config
+- `onDragOver` - preview callback
+- `onDragEnd` - commit callback
+
+### List Config
+- `items` - data to render
+- `getId` - extract ID from item
+- `getGroupId` - extract group ID from item
+- `compare` - sort function
 - `type` - consumer-defined type string
-- `groupId` - which group this item belongs to
-- `accept` - array of types this item can receive
+- `accept` - array of types this list can receive
 - `collisionPriority` - for nested item resolution
 
 ## 8. Type System
