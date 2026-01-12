@@ -215,70 +215,70 @@ function NestedList() {
           onDragEnd: handleDragEnd,
         }}
       >
-        <DndList.List
-          config={{
-            items: shelves,
-            getId: (s) => s.id,
-            getGroupId: () => 'room',
-            groupId: 'room',
-            compare: (a, b) => (a.position < b.position ? -1 : 1),
-            draggableTypeId: 'shelf',
-            acceptsDraggableTypes: ['shelf'],
-            collisionPriority: CollisionPriority.Low,
-          }}
-        >
-          {({ ref, item: shelf, isDragging }) => (
-            <div
-              ref={ref}
-              style={{
-                opacity: isDragging ? 0.5 : 1,
-                padding: 16,
-                margin: 8,
-                background: '#333',
-                borderRadius: 8,
-              }}
-            >
-              <div style={{ marginBottom: 8 }}>▣ {shelf.id}</div>
-              <DndList.Group
+        {shelves
+          .slice()
+          .sort((a, b) => (a.position < b.position ? -1 : 1))
+          .map((shelf, index, sortedShelves) => {
+            const prevShelf = sortedShelves[index - 1]
+            return (
+              <DndList.SortableGroup
+                key={shelf.id}
                 config={{
-                  groupId: shelf.id,
-                  accept: ['box'],
+                  id: shelf.id,
+                  index,
+                  draggableTypeId: 'shelf',
+                  acceptsDraggableTypes: ['shelf'],
+                  groupId: 'room',
+                  prevId: prevShelf?.id ?? null,
+                  acceptsChildTypes: ['box'],
+                  collisionPriority: CollisionPriority.Low,
                 }}
               >
-                {({ ref: groupRef, isDropTarget }) => (
-                  <div ref={groupRef} style={{ display: 'flex', gap: 8, minHeight: 40, background: isDropTarget ? '#444' : 'transparent', borderRadius: 4 }}>
-                    <DndList.List
-                      config={{
-                        items: boxes,
-                        getId: (b) => b.id,
-                        getGroupId: (b) => b.shelfId,
-                        groupId: shelf.id,
-                        compare: (a, b) => (a.position < b.position ? -1 : 1),
-                        draggableTypeId: 'box',
-                        acceptsDraggableTypes: ['box'],
-                        collisionPriority: CollisionPriority.High,
-                      }}
-                    >
-                      {({ ref, item: box, isDragging }) => (
-                        <div
-                          ref={ref}
-                          style={{
-                            opacity: isDragging ? 0.5 : 1,
-                            padding: 8,
-                            background: '#555',
-                            borderRadius: 4,
-                          }}
-                        >
-                          □ {box.id}
-                        </div>
-                      )}
-                    </DndList.List>
+                {({ ref, isDragging, isDropTarget }) => (
+                  <div
+                    ref={ref}
+                    style={{
+                      opacity: isDragging ? 0.5 : 1,
+                      padding: 16,
+                      margin: 8,
+                      background: isDropTarget ? '#444' : '#333',
+                      borderRadius: 8,
+                    }}
+                  >
+                    <div style={{ marginBottom: 8 }}>▣ {shelf.id}</div>
+                    <div style={{ display: 'flex', gap: 8, minHeight: 40 }}>
+                      <DndList.List
+                        config={{
+                          items: boxes,
+                          getId: (b) => b.id,
+                          getGroupId: (b) => b.shelfId,
+                          groupId: shelf.id,
+                          compare: (a, b) => (a.position < b.position ? -1 : 1),
+                          draggableTypeId: 'box',
+                          acceptsDraggableTypes: ['box'],
+                          collisionPriority: CollisionPriority.High,
+                        }}
+                      >
+                        {({ ref, item: box, isDragging }) => (
+                          <div
+                            ref={ref}
+                            style={{
+                              opacity: isDragging ? 0.5 : 1,
+                              padding: 8,
+                              background: '#555',
+                              borderRadius: 4,
+                            }}
+                          >
+                            □ {box.id}
+                          </div>
+                        )}
+                      </DndList.List>
+                    </div>
                   </div>
                 )}
-              </DndList.Group>
-            </div>
-          )}
-        </DndList.List>
+              </DndList.SortableGroup>
+            )
+          })}
       </DndList.Root>
     </div>
   )

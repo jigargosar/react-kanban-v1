@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { type ReactNode, useMemo } from 'react'
+import { type ReactNode, useMemo, useCallback } from 'react'
 import { DragDropProvider, PointerSensor, useDroppable } from '@dnd-kit/react'
 import { useSortable } from '@dnd-kit/react/sortable'
 import { type CollisionPriority, CollisionPriority as CP } from '@dnd-kit/abstract'
@@ -187,8 +187,72 @@ function Group({ config, children }: GroupProps) {
   return <>{children({ ref, isDropTarget })}</>
 }
 
+type SortableGroupConfig = {
+  id: string
+  index: number
+  draggableTypeId: string
+  acceptsDraggableTypes: string[]
+  groupId: string
+  prevId: string | null
+  acceptsChildTypes: string[]
+  collisionPriority?: CollisionPriority
+}
+
+type SortableGroupProps = {
+  config: SortableGroupConfig
+  children: (props: {
+    ref: (element: HTMLElement | null) => void
+    isDragging: boolean
+    isDropTarget: boolean
+  }) => ReactNode
+}
+
+function SortableGroup({ config, children }: SortableGroupProps) {
+  const {
+    id,
+    index,
+    draggableTypeId,
+    acceptsDraggableTypes,
+    groupId,
+    prevId,
+    acceptsChildTypes,
+    collisionPriority = CP.Low,
+  } = config
+
+  const { ref: sortableRef, isDragging } = useSortable({
+    id,
+    index,
+    type: draggableTypeId,
+    accept: acceptsDraggableTypes,
+    group: groupId,
+    collisionPriority,
+    data: {
+      groupId,
+      prevId,
+    },
+  })
+
+  const { ref: droppableRef, isDropTarget } = useDroppable({
+    id: id + GROUP_ID_SUFFIX,
+    type: GROUP_TYPE,
+    accept: acceptsChildTypes,
+    collisionPriority: CP.Low,
+  })
+
+  const combinedRef = useCallback(
+    (element: HTMLElement | null) => {
+      sortableRef(element)
+      droppableRef(element)
+    },
+    [sortableRef, droppableRef]
+  )
+
+  return <>{children({ ref: combinedRef, isDragging, isDropTarget })}</>
+}
+
 export const DndList = {
   Root,
   List,
   Group,
+  SortableGroup,
 }
