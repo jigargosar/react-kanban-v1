@@ -1,8 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
 import { type ReactNode, useMemo } from 'react'
-import { DragDropProvider, PointerSensor } from '@dnd-kit/react'
+import { DragDropProvider, PointerSensor, useDroppable } from '@dnd-kit/react'
 import { useSortable } from '@dnd-kit/react/sortable'
-import { type CollisionPriority } from '@dnd-kit/abstract'
+import { type CollisionPriority, CollisionPriority as CP } from '@dnd-kit/abstract'
 
 export type MoveInfo = {
   itemId: string
@@ -22,19 +22,22 @@ type RootProps = {
   children: ReactNode
 }
 
+const GROUP_TYPE = Symbol('dndlist-group')
+
 function constructMoveInfo(
   source: { id: unknown; type: unknown },
   target: { id: unknown; type: unknown; data?: { groupId?: string; prevId?: string | null; lastChildId?: string | null } }
 ): MoveInfo {
   const targetData = target.data ?? {}
+  const isGroupTarget = target.type === GROUP_TYPE
   const isParentTarget = targetData.lastChildId !== undefined
 
   return {
     itemId: String(source.id),
     draggableTypeId: String(source.type),
-    toGroupId: isParentTarget ? String(target.id) : (targetData.groupId ?? ''),
-    beforeId: isParentTarget ? (targetData.lastChildId ?? null) : (targetData.prevId ?? null),
-    afterId: isParentTarget ? null : String(target.id),
+    toGroupId: isGroupTarget ? String(target.id) : (isParentTarget ? String(target.id) : (targetData.groupId ?? '')),
+    beforeId: isGroupTarget ? (targetData.lastChildId ?? null) : (isParentTarget ? (targetData.lastChildId ?? null) : (targetData.prevId ?? null)),
+    afterId: isGroupTarget || isParentTarget ? null : String(target.id),
   }
 }
 
@@ -157,7 +160,35 @@ function ListItem<T>({
   return <>{children({ ref, item, isDragging })}</>
 }
 
+type GroupConfig = {
+  groupId: string
+  accept: string[]
+  lastChildId: string | null
+}
+
+type GroupProps = {
+  config: GroupConfig
+  children: (props: { ref: (element: HTMLElement | null) => void; isDropTarget: boolean }) => ReactNode
+}
+
+function Group({ config, children }: GroupProps) {
+  const { groupId, accept, lastChildId } = config
+
+  const { ref, isDropTarget } = useDroppable({
+    id: groupId,
+    type: GROUP_TYPE,
+    accept,
+    collisionPriority: CP.Low,
+    data: {
+      lastChildId,
+    },
+  })
+
+  return <>{children({ ref, isDropTarget })}</>
+}
+
 export const DndList = {
   Root,
   List,
+  Group,
 }
