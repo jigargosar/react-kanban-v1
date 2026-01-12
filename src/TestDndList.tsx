@@ -120,20 +120,14 @@ function GroupedList() {
         }}
       >
         <div style={{ display: 'flex', gap: 16 }}>
-          {['bucket-x', 'bucket-y'].map((bucketId) => {
-            const bucketBalls = balls.filter((b) => b.bucketId === bucketId).sort((a, b) => (a.position < b.position ? -1 : 1))
-            const lastBall = bucketBalls[bucketBalls.length - 1]
-            const lastChildId = lastBall != null ? lastBall.id : null
-
-            return (
-              <DndList.Group
-                key={bucketId}
-                config={{
-                  groupId: bucketId,
-                  accept: ['ball'],
-                  lastChildId,
-                }}
-              >
+          {['bucket-x', 'bucket-y'].map((bucketId) => (
+            <DndList.Group
+              key={bucketId}
+              config={{
+                groupId: bucketId,
+                accept: ['ball'],
+              }}
+            >
                 {({ ref, isDropTarget }) => (
                   <div
                     ref={ref}
@@ -176,8 +170,7 @@ function GroupedList() {
                   </div>
                 )}
               </DndList.Group>
-            )
-          })}
+          ))}
         </div>
       </DndList.Root>
     </div>

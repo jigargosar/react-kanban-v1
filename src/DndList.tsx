@@ -36,7 +36,7 @@ function constructMoveInfo(
     itemId: String(source.id),
     draggableTypeId: String(source.type),
     toGroupId: isGroupTarget ? String(target.id) : (isParentTarget ? String(target.id) : (targetData.groupId ?? '')),
-    beforeId: isGroupTarget ? (targetData.lastChildId ?? null) : (isParentTarget ? (targetData.lastChildId ?? null) : (targetData.prevId ?? null)),
+    beforeId: isGroupTarget ? null : (isParentTarget ? (targetData.lastChildId ?? null) : (targetData.prevId ?? null)),
     afterId: isGroupTarget || isParentTarget ? null : String(target.id),
   }
 }
@@ -163,7 +163,6 @@ function ListItem<T>({
 type GroupConfig = {
   groupId: string
   accept: string[]
-  lastChildId: string | null
 }
 
 type GroupProps = {
@@ -172,16 +171,13 @@ type GroupProps = {
 }
 
 function Group({ config, children }: GroupProps) {
-  const { groupId, accept, lastChildId } = config
+  const { groupId, accept } = config
 
   const { ref, isDropTarget } = useDroppable({
     id: groupId,
     type: GROUP_TYPE,
     accept,
     collisionPriority: CP.Low,
-    data: {
-      lastChildId,
-    },
   })
 
   return <>{children({ ref, isDropTarget })}</>
