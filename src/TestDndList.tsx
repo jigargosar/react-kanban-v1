@@ -175,7 +175,7 @@ function NestedList() {
             groupId: 'room',
             compare: (a, b) => (a.position < b.position ? -1 : 1),
             draggableTypeId: 'shelf',
-            acceptsDraggableTypes: ['shelf', 'box'],
+            acceptsDraggableTypes: ['shelf'],
             collisionPriority: CollisionPriority.Low,
           }}
         >
