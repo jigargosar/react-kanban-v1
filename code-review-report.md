@@ -154,7 +154,7 @@ pending = result.catch(() => {}) // Continue chain even on failure
 
 ## High Confidence
 
-### 13. dnd.tsx:7-14 - MoveInfo.type is string but should be discriminated union
+### 1. dnd.tsx:7-14 - MoveInfo.type is string but should be discriminated union
 **Tags:** `bug-risk`, `readability`
 
 **What:** `MoveInfo.type` is typed as `string` but only `'card'` or `'column'` are valid values.
@@ -165,7 +165,7 @@ pending = result.catch(() => {}) // Continue chain even on failure
 
 ---
 
-### 14. App.tsx:32-43 - BoardSelector can call updateBoard with null activeBoardId
+### 2. App.tsx:32-43 - BoardSelector can call updateBoard with null activeBoardId
 **Tags:** `bug-risk`, `maintenance`
 
 **What:** When `isEditingBoard && activeBoard != null`, `updateBoard(activeBoardId, title)` is called, but TypeScript doesn't narrow `activeBoardId` to non-null (only `activeBoard` is checked).
@@ -176,7 +176,7 @@ pending = result.catch(() => {}) // Continue chain even on failure
 
 ---
 
-### 15. App.tsx - Fragile State: isAdding states in multiple components are independent of editing state
+### 3. App.tsx - Fragile State: isAdding states in multiple components are independent of editing state
 **Tags:** `complexity`, `bug-risk`
 
 **What:** `BoardSelector`, `ColumnContent`, and `AddColumnButton` each have independent `isAdding` state. These don't coordinate with the global `editing` state.
@@ -187,7 +187,7 @@ pending = result.catch(() => {}) // Continue chain even on failure
 
 ---
 
-### 16. store.ts:105-149 - initAuth switch doesn't handle all AuthChangeEvent values
+### 4. store.ts:105-149 - initAuth switch doesn't handle all AuthChangeEvent values
 **Tags:** `maintenance`, `bug-risk`
 
 **What:** The switch handles `INITIAL_SESSION`, `SIGNED_IN`, `SIGNED_OUT`, `TOKEN_REFRESHED`, `USER_UPDATED`, `PASSWORD_RECOVERY`. But Supabase's `AuthChangeEvent` type may include other values like `MFA_CHALLENGE_VERIFIED`.
@@ -200,7 +200,7 @@ pending = result.catch(() => {}) // Continue chain even on failure
 
 ## Medium Confidence
 
-### 17. model.ts:86-94 - calculatePositionBetween doesn't validate that beforeId/afterId exist
+### 5. model.ts:86-94 - calculatePositionBetween doesn't validate that beforeId/afterId exist
 **Tags:** `bug-risk`
 
 **What:** If `beforeId` or `afterId` refers to a non-existent item, `items[beforeId]?.position` returns `undefined`, then `?? null` makes it null. This silently treats missing items as "position at end/start."
@@ -211,7 +211,7 @@ pending = result.catch(() => {}) // Continue chain even on failure
 
 ---
 
-### 18. store.ts:80-82 - persist wrapper swallows context about which operation failed
+### 6. store.ts:80-82 - persist wrapper swallows context about which operation failed
 **Tags:** `maintenance`, `readability`
 
 **What:** Errors are caught and stored as generic `error` string. The user sees "Unknown error" or the error message, but doesn't know which operation failed.
@@ -222,7 +222,7 @@ pending = result.catch(() => {}) // Continue chain even on failure
 
 ---
 
-### 19. dnd.tsx:183 - Magic number: CollisionPriority.Low in ColumnList
+### 7. dnd.tsx:183 - Magic number: CollisionPriority.Low in ColumnList
 **Tags:** `maintenance`, `readability`
 
 **What:** Default collision priority is `CollisionPriority.Low` without explanation.
@@ -233,7 +233,7 @@ pending = result.catch(() => {}) // Continue chain even on failure
 
 ---
 
-### 20. api.ts:21-23 - toRecord assumes all items have unique IDs
+### 8. api.ts:21-23 - toRecord assumes all items have unique IDs
 **Tags:** `bug-risk`
 
 **What:** `Object.fromEntries` will silently overwrite if duplicate IDs exist.
@@ -246,7 +246,7 @@ pending = result.catch(() => {}) // Continue chain even on failure
 
 ## Low Confidence
 
-### 21. App.tsx:284 - Search term comparison may not handle unicode properly
+### 9. App.tsx:284 - Search term comparison may not handle unicode properly
 **Tags:** `maintenance`
 
 **What:** `toLowerCase()` may not handle all unicode edge cases (e.g., Turkish i).
