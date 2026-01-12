@@ -25,24 +25,37 @@ Both callbacks receive `MoveInfo`:
 - `beforeId` - ID of item before the drop position
 - `afterId` - ID of item after the drop position
 
-## 4. Grouping
+## 4. Grouping & Nesting
+
+### Grouping
 1. Items belong to a group via `groupId`
 2. DndList filters and sorts items per group
 3. Cross-group moves: `toGroupId` reflects new group
 4. Empty group drop: `beforeId = null`, `afterId = null`
 
-## 5. Nested Draggables
-1. Items can contain other items (e.g., columns contain cards)
+### Nesting
+1. Items can contain other items
 2. Use `collisionPriority` to resolve which item is drop target
 3. Drop on parent (not child): append to end
 
-## 6. Index to ID Conversion
+### Example 1: Grouping (buckets with balls)
+- Buckets are static containers (not draggable)
+- Balls can drag between buckets
+- One `DndList.List` for balls with different `groupId` values
+
+### Example 2: Nesting (shelves with boxes)
+- Shelves are draggable (reorder shelves)
+- Boxes on shelves are draggable (reorder boxes, move between shelves)
+- Two `DndList.List` - one for shelves, one for boxes
+- Shelf ID becomes box's `groupId`
+
+## 5. Index to ID Conversion
 1. Client provides: items, sort function, getId function
 2. DndList computes: sorted order, `prevId` per item
 3. DndList stores `prevId` in dnd-kit's data bag
 4. On drop, DndList retrieves target's `prevId` → `beforeId`, target's `id` → `afterId`
 
-## 7. Type System
+## 6. Type System
 1. `draggableTypeId` and `acceptsDraggableTypes` are client-defined strings
 2. DndList is agnostic - no hardcoded type literals
 3. Client controls which types can drop on which
