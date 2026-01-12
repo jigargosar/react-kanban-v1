@@ -48,3 +48,10 @@ All explicit, no optionals:
 1. `type` and `accept` are consumer-defined strings
 2. Module is agnostic - no hardcoded type literals
 3. Consumer controls which types can drop on which
+
+## Approach
+1. Write `TestDndList.tsx` with desired API usage
+2. Create `DndList.tsx` with type stubs (empty implementations)
+3. Compiler passes
+4. Fill in actual logic
+5. Test in browser
