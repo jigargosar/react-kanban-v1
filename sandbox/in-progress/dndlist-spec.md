@@ -5,59 +5,45 @@
 2. DndList abstracts into ID-based positioning (`beforeId`/`afterId`)
 3. Enables clients to implement fractional indexing without knowing internal sort mechanics
 
-## 2. Concepts
-- `type` - what kind of item this is (e.g., 'card', 'column'). Client-defined string.
-- `accept` - what types can drop on this item (e.g., `['card']` means cards can drop on me). Controls drag-drop compatibility.
-- `groupId` - which group this item belongs to for sorting/filtering. Items with same `groupId` are sorted together. When an item drops on a target, `toGroupId` in MoveInfo is set to target's `groupId`.
+## 2. List Config
+- `items` - data to render
+- `getId` - extract ID from item
+- `getGroupId` - extract group ID from item. Items with same `groupId` are sorted together.
+- `compare` - sort function for ordering items within a group
+- `draggableTypeId` - identifies what kind of item this is. Used by other items' `acceptsDraggableTypes` to check drag-drop compatibility.
+- `acceptsDraggableTypes` - array of type IDs this item can receive as drop target.
+- `collisionPriority` - when multiple items overlap, higher priority wins as drop target.
 
-## 3. MoveInfo Contract
-Output structure:
+## 3. Root Config
+- `onDragOver` - called during drag with live position (for optimistic UI preview)
+- `onDragEnd` - called when drag completes (for persisting changes)
+
+Both callbacks receive `MoveInfo`:
 - `itemId` - ID of item being dragged
-- `type` - client-defined type string
+- `draggableTypeId` - type ID of item being dragged
 - `toGroupId` - destination group ID
-- `beforeId` - ID of item that will precede (null if first)
-- `afterId` - ID of item that will follow (null if last)
+- `beforeId` - ID of item before the drop position
+- `afterId` - ID of item after the drop position
 
-## 4. Drag Events
-1. `onDragOver` - live preview during drag (optimistic UI)
-2. `onDragEnd` - final commit when drag completes
-3. Both emit same `MoveInfo` shape
-4. Client decides what to do with each
-
-## 5. Grouping
+## 4. Grouping
 1. Items belong to a group via `groupId`
 2. DndList filters and sorts items per group
 3. Cross-group moves: `toGroupId` reflects new group
 4. Empty group drop: `beforeId = null`, `afterId = null`
 
-## 6. Nested Draggables
-1. Containers are themselves draggable items
-2. Containers hold child items in a nested group
-3. Drop on container (not on child): append to end (`beforeId = lastChildId`, `afterId = null`)
+## 5. Nested Draggables
+1. Items can contain other items (e.g., columns contain cards)
+2. Use `collisionPriority` to resolve which item is drop target
+3. Drop on parent (not child): append to end
 
-## 7. Index to ID Conversion
+## 6. Index to ID Conversion
 1. Client provides: items, sort function, getId function
 2. DndList computes: sorted order, `prevId` per item
 3. DndList stores `prevId` in dnd-kit's data bag
 4. On drop, DndList retrieves target's `prevId` → `beforeId`, target's `id` → `afterId`
 
-## 8. Configuration
-
-### Root Config
-- `onDragOver` - preview callback
-- `onDragEnd` - commit callback
-
-### List Config
-- `items` - data to render
-- `getId` - extract ID from item
-- `getGroupId` - extract group ID from item
-- `compare` - sort function
-- `type` - client-defined type string
-- `accept` - array of types this list can receive
-- `collisionPriority` - for nested item resolution
-
-## 9. Type System
-1. `type` and `accept` are client-defined strings
+## 7. Type System
+1. `draggableTypeId` and `acceptsDraggableTypes` are client-defined strings
 2. DndList is agnostic - no hardcoded type literals
 3. Client controls which types can drop on which
 
