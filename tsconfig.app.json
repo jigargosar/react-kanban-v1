@@ -23,7 +23,11 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
-    "noUncheckedIndexedAccess": true
+    "noUncheckedIndexedAccess": true,
+    "paths": {
+      "@external-lib/*": ["./src/external-lib/*"]
+    },
+    "baseUrl": "."
   },
   "include": ["src"],
   "exclude": ["src/stories"]

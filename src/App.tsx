@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { type Card, type Column, getSortedBoards } from './model'
 import { useAppStore } from './store'
-import { DndList, type MoveInfo } from './DndList'
+import { DndList, type MoveInfo } from '@external-lib/DndList'
 import { CollisionPriority } from '@dnd-kit/abstract'
 
 function assertNever(value: never, msg?: string): never {

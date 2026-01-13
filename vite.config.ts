@@ -9,6 +9,11 @@ export default defineConfig({
   build: {
     outDir: 'dist',
   },
+  resolve: {
+    alias: {
+      '@external-lib': resolve(__dirname, 'src/external-lib'),
+    },
+  },
   plugins: [
     react(),
     tailwindcss(),
