@@ -7,25 +7,31 @@
 |              APP STATE MACHINE           |
 +==========================================+
 
-     ┌─────────────┐
-     │   Loading   │
-     │ tag:'loading'
-     └──────┬──────┘
+     ┌──────────────┐
+     │ auth-pending │  (supabase checking session)
+     └──────┬───────┘
             │
-            │ load() done
-            ▼
-     ┌─────────────────────────────┐
-     │          Loaded             │
-     │       tag: 'loaded'         │
-     │                             │
-     │  boards, columns, cards     │
-     │  activeBoardId: BoardId | null
-     │  editing: EditingState      │
-     └─────────────────────────────┘
+            │ onAuthStateChange
+      ┌─────┴─────┐
+      ▼           ▼
+┌───────────┐  ┌─────────────┐
+│ signed-out│  │   loading   │
+└─────┬─────┘  │  (has user) │
+      │        └──────┬──────┘
+      │               │ fetch done
+      │               ▼
+      │        ┌─────────────┐
+      │        │   loaded    │
+      │        │ (has user + │
+      │        │    data)    │
+      │        └──────┬──────┘
+      │               │
+      └───────────────┘
+         sign out clears all
 
 
 +==========================================+
-|       EDITING (inside Loaded)            |
+|       EDITING (inside loaded)            |
 +==========================================+
 
      ┌────────┐  startEditing   ┌───────────┐
@@ -43,9 +49,12 @@ type EditingState =
   | { type: 'board'; id: BoardId }
   | null
 
-type BoardState =
-  | { tag: 'loading' }
+type AppState =
+  | { tag: 'auth-pending' }
+  | { tag: 'signed-out' }
+  | { tag: 'loading'; user: AuthUser }
   | { tag: 'loaded'
+      user: AuthUser
       boards: Record<BoardId, Board>
       columns: Record<ColumnId, Column>
       cards: Record<CardId, Card>
@@ -53,15 +62,18 @@ type BoardState =
       editing: EditingState
     }
 
-type AppState = {
-  user: AuthUser | null
+type Store = {
+  state: AppState
   error: string | null
-  board: BoardState
 }
 ```
 
 ## Notes
 
-- `user` and `error` are top-level nullables (orthogonal to board state)
-- `editing` only exists inside `loaded` state
-- Auth handled by Supabase, we just track `user` as nullable
+- `auth-pending`: Supabase checking cached session
+- `signed-out`: No user
+- `loading`: User confirmed, fetching data
+- `loaded`: User + data ready
+- `error` orthogonal (can occur in any state)
+- `editing` only exists in `loaded` state
+- Flat access: `state.user`, `state.boards` (no `.data.` nesting)
