@@ -16,7 +16,6 @@ import {
   calculatePositionBetween,
 } from './model'
 import * as api from './api'
-import { enqueue } from './queue'
 
 type Status = 'idle' | 'loading'
 
@@ -75,11 +74,19 @@ type AppActions = {
   clearError: () => void
 }
 
-export const useAppStore = create<AppState & AppActions>((set, get) => {
-  // Fire-and-forget: void return is intentional - callers use optimistic updates
-  const persist = (fn: () => Promise<void>) => {
-    enqueue(fn).catch((e: unknown) => { set({ error: e instanceof Error ? e.message : 'Unknown error' }); })
+function createPersistQueue(onError: (e: unknown) => void) {
+  let pending = Promise.resolve()
+  return function persist(fn: () => Promise<void>): void {
+    const result = pending.then(fn)
+    pending = result.then(() => {}, () => {})
+    result.catch(onError)
   }
+}
+
+export const useAppStore = create<AppState & AppActions>((set, get) => {
+  const persist = createPersistQueue((e) =>
+    { set({ error: e instanceof Error ? e.message : 'Unknown error' }); }
+  )
 
   return {
   // Auth
