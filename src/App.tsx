@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { type Card, type Column, getSortedBoards } from './model'
-import { useAppStore } from './store'
+import { useAppState, appActions } from './store'
 import { DndList, type MoveInfo } from '@external-lib/DndList'
 import { CollisionPriority } from '@dnd-kit/abstract'
 
@@ -11,7 +11,8 @@ function assertNever(value: never, msg?: string): never {
 // Board selector dropdown
 function BoardSelector() {
   const [isAdding, setIsAdding] = useState(false)
-  const { boards, activeBoardId, setActiveBoard, addBoard, updateBoard, deleteBoard, editing, startEditing, stopEditing } = useAppStore()
+  const { boards, activeBoardId, editing } = useAppState()
+  const { setActiveBoard, addBoard, updateBoard, deleteBoard, startEditing, stopEditing } = appActions
   const sortedBoards = getSortedBoards(boards)
   const activeBoard = activeBoardId != null ? boards[activeBoardId] : null
   const isEditingBoard = editing?.type === 'board' && editing.id === activeBoardId
@@ -276,7 +277,8 @@ function ColumnContent({
   searchTerm: string
 }) {
   const [isAdding, setIsAdding] = useState(false)
-  const { cards, editing, startEditing, stopEditing, updateCard, deleteCard, addCard } = useAppStore()
+  const { cards, editing } = useAppState()
+  const { startEditing, stopEditing, updateCard, deleteCard, addCard } = appActions
 
   // Filter cards by search term
   const columnCards = Object.entries(cards).filter(([, card]) => card.columnId === column.id)
@@ -351,7 +353,7 @@ function ColumnContent({
 // Add column button
 function AddColumnButton() {
   const [isAdding, setIsAdding] = useState(false)
-  const { addColumn } = useAppStore()
+  const { addColumn } = appActions
 
   if (isAdding) {
     return (
@@ -381,7 +383,8 @@ function AddColumnButton() {
 
 // Error notification
 function ErrorNotification() {
-  const { error, clearError } = useAppStore()
+  const { error } = useAppState()
+  const { clearError } = appActions
   if (error == null) return null
 
   return (
@@ -399,7 +402,8 @@ function ErrorNotification() {
 
 // Auth component
 function AuthButton() {
-  const { user, authLoading, signIn, signOut } = useAppStore()
+  const { user, authLoading } = useAppState()
+  const { signIn, signOut } = appActions
 
   if (authLoading) return null
 
@@ -459,7 +463,8 @@ function SearchInput({
 
 // Main App
 function App() {
-  const { columns, activeBoardId, status, reset, moveCard, moveColumn, editing, startEditing, stopEditing, initAuth, updateColumn, deleteColumn } = useAppStore()
+  const { columns, activeBoardId, status, editing } = useAppState()
+  const { reset, moveCard, moveColumn, startEditing, stopEditing, initAuth, updateColumn, deleteColumn } = appActions
   const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {

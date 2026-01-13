@@ -83,7 +83,7 @@ function createPersistQueue(onError: (e: unknown) => void) {
   }
 }
 
-export const useAppStore = create<AppState & AppActions>((set, get) => {
+const useAppStore = create<AppState & AppActions>((set, get) => {
   const persist = createPersistQueue((e) =>
     { set({ error: e instanceof Error ? e.message : 'Unknown error' }); }
   )
@@ -376,3 +376,7 @@ export const useAppStore = create<AppState & AppActions>((set, get) => {
 
   clearError: () => { set({ error: null }); },
 }})
+
+export const useAppState: () => AppState = useAppStore
+
+export const appActions: AppActions = useAppStore.getState()
