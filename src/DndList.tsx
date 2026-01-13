@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { type ReactNode, useMemo, useCallback } from 'react'
+import { type ReactNode, useMemo, useCallback, useId } from 'react'
 import { DragDropProvider, PointerSensor, useDroppable } from '@dnd-kit/react'
 import { useSortable } from '@dnd-kit/react/sortable'
 import { type CollisionPriority, CollisionPriority as CP } from '@dnd-kit/abstract'
@@ -22,26 +22,22 @@ type RootProps = {
   children: ReactNode
 }
 
+const LIST_TYPE = Symbol('dndlist-list')
 const GROUP_TYPE = Symbol('dndlist-group')
-const GROUP_ID_SUFFIX = '::group'
 
 function constructMoveInfo(
   source: { id: unknown; type: unknown },
-  target: { id: unknown; type: unknown; data?: { groupId?: string; prevId?: string | null; lastChildId?: string | null } }
+  target: { id: unknown; type: unknown; data?: { groupId?: string; prevId?: string | null } }
 ): MoveInfo {
   const targetData = target.data ?? {}
-  const isGroupTarget = target.type === GROUP_TYPE
-  const isParentTarget = targetData.lastChildId !== undefined
-
-  const targetId = String(target.id)
-  const groupId = isGroupTarget ? targetId.replace(GROUP_ID_SUFFIX, '') : targetId
+  const isContainerTarget = target.type === LIST_TYPE || target.type === GROUP_TYPE
 
   return {
     itemId: String(source.id),
     draggableTypeId: String(source.type),
-    toGroupId: isGroupTarget ? groupId : (isParentTarget ? groupId : (targetData.groupId ?? '')),
-    beforeId: isGroupTarget ? null : (isParentTarget ? (targetData.lastChildId ?? null) : (targetData.prevId ?? null)),
-    afterId: isGroupTarget || isParentTarget ? null : String(target.id),
+    toGroupId: targetData.groupId ?? '',
+    beforeId: isContainerTarget ? null : (targetData.prevId ?? null),
+    afterId: isContainerTarget ? null : String(target.id),
   }
 }
 
@@ -79,47 +75,67 @@ type ListConfig<T> = {
   collisionPriority: CollisionPriority
 }
 
+type ItemRenderProps<T> = {
+  ref: (element: HTMLElement | null) => void
+  item: T
+  isDragging: boolean
+}
+
+type RenderItemsFn<T> = (renderItem: (props: ItemRenderProps<T>) => ReactNode) => ReactNode
+
+type ListRenderProps<T> = {
+  containerRef: (element: HTMLElement | null) => void
+  isDropTarget: boolean
+  renderItems: RenderItemsFn<T>
+}
+
 type ListProps<T> = {
   config: ListConfig<T>
-  children: (props: { ref: (element: HTMLElement | null) => void; item: T; isDragging: boolean }) => ReactNode
+  children: (props: ListRenderProps<T>) => ReactNode
 }
 
 function List<T>({ config, children }: ListProps<T>) {
   const { items, getId, getGroupId, groupId, compare, draggableTypeId, acceptsDraggableTypes, collisionPriority } = config
 
+  const listDroppableId = useId()
+  const { ref: containerRef, isDropTarget } = useDroppable({
+    id: listDroppableId,
+    type: LIST_TYPE,
+    accept: acceptsDraggableTypes,
+    collisionPriority: CP.Low,
+    data: {
+      groupId,
+    },
+  })
+
   const sortedItems = useMemo(() => {
     return items.filter((item) => getGroupId(item) === groupId).sort(compare)
   }, [items, getGroupId, groupId, compare])
 
-  // Compute lastChildId for parent items (items that accept other types)
-  const lastItem = sortedItems[sortedItems.length - 1]
-  const lastChildId = lastItem != null ? getId(lastItem) : null
+  const renderItems: RenderItemsFn<T> = (renderItem) => {
+    return sortedItems.map((item, index) => {
+      const prevItem = sortedItems[index - 1]
+      const prevId = prevItem != null ? getId(prevItem) : null
 
-  return (
-    <>
-      {sortedItems.map((item, index) => {
-        const prevItem = sortedItems[index - 1]
-        const prevId = prevItem != null ? getId(prevItem) : null
+      return (
+        <ListItem
+          key={getId(item)}
+          item={item}
+          index={index}
+          id={getId(item)}
+          groupId={groupId}
+          prevId={prevId}
+          draggableTypeId={draggableTypeId}
+          acceptsDraggableTypes={acceptsDraggableTypes}
+          collisionPriority={collisionPriority}
+        >
+          {renderItem}
+        </ListItem>
+      )
+    })
+  }
 
-        return (
-          <ListItem
-            key={getId(item)}
-            item={item}
-            index={index}
-            id={getId(item)}
-            groupId={groupId}
-            prevId={prevId}
-            lastChildId={acceptsDraggableTypes.length > 1 ? lastChildId : undefined}
-            draggableTypeId={draggableTypeId}
-            acceptsDraggableTypes={acceptsDraggableTypes}
-            collisionPriority={collisionPriority}
-          >
-            {children}
-          </ListItem>
-        )
-      })}
-    </>
-  )
+  return <>{children({ containerRef, isDropTarget, renderItems })}</>
 }
 
 type ListItemProps<T> = {
@@ -128,11 +144,10 @@ type ListItemProps<T> = {
   id: string
   groupId: string
   prevId: string | null
-  lastChildId: string | null | undefined
   draggableTypeId: string
   acceptsDraggableTypes: string[]
   collisionPriority: CollisionPriority
-  children: (props: { ref: (element: HTMLElement | null) => void; item: T; isDragging: boolean }) => ReactNode
+  children: (props: ItemRenderProps<T>) => ReactNode
 }
 
 function ListItem<T>({
@@ -141,7 +156,6 @@ function ListItem<T>({
   id,
   groupId,
   prevId,
-  lastChildId,
   draggableTypeId,
   acceptsDraggableTypes,
   collisionPriority,
@@ -157,7 +171,6 @@ function ListItem<T>({
     data: {
       groupId,
       prevId,
-      ...(lastChildId !== undefined && { lastChildId }),
     },
   })
 
@@ -165,29 +178,6 @@ function ListItem<T>({
 }
 
 type GroupConfig = {
-  groupId: string
-  accept: string[]
-}
-
-type GroupProps = {
-  config: GroupConfig
-  children: (props: { ref: (element: HTMLElement | null) => void; isDropTarget: boolean }) => ReactNode
-}
-
-function Group({ config, children }: GroupProps) {
-  const { groupId, accept } = config
-
-  const { ref, isDropTarget } = useDroppable({
-    id: groupId + GROUP_ID_SUFFIX,
-    type: GROUP_TYPE,
-    accept,
-    collisionPriority: CP.Low,
-  })
-
-  return <>{children({ ref, isDropTarget })}</>
-}
-
-type SortableGroupConfig = {
   id: string
   index: number
   draggableTypeId: string
@@ -198,8 +188,8 @@ type SortableGroupConfig = {
   collisionPriority?: CollisionPriority
 }
 
-type SortableGroupProps = {
-  config: SortableGroupConfig
+type GroupProps = {
+  config: GroupConfig
   children: (props: {
     ref: (element: HTMLElement | null) => void
     isDragging: boolean
@@ -207,7 +197,7 @@ type SortableGroupProps = {
   }) => ReactNode
 }
 
-function SortableGroup({ config, children }: SortableGroupProps) {
+function Group({ config, children }: GroupProps) {
   const {
     id,
     index,
@@ -218,6 +208,8 @@ function SortableGroup({ config, children }: SortableGroupProps) {
     acceptsChildTypes,
     collisionPriority = CP.Low,
   } = config
+
+  const groupDroppableId = useId()
 
   const { ref: sortableRef, isDragging } = useSortable({
     id,
@@ -233,10 +225,13 @@ function SortableGroup({ config, children }: SortableGroupProps) {
   })
 
   const { ref: droppableRef, isDropTarget } = useDroppable({
-    id: id + GROUP_ID_SUFFIX,
+    id: groupDroppableId,
     type: GROUP_TYPE,
     accept: acceptsChildTypes,
     collisionPriority: CP.Low,
+    data: {
+      groupId: id, // This group's id is the groupId for children
+    },
   })
 
   const combinedRef = useCallback(
@@ -254,5 +249,4 @@ export const DndList = {
   Root,
   List,
   Group,
-  SortableGroup,
 }

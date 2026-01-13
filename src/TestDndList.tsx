@@ -45,18 +45,30 @@ function SimpleList() {
             collisionPriority: CollisionPriority.Normal,
           }}
         >
-          {({ ref, item, isDragging }) => (
+          {({ containerRef, isDropTarget, renderItems }) => (
             <div
-              ref={ref}
+              ref={containerRef}
               style={{
-                opacity: isDragging ? 0.5 : 1,
+                background: isDropTarget ? '#444' : '#333',
                 padding: 8,
-                margin: 4,
-                background: '#444',
                 borderRadius: 4,
+                minHeight: 50,
               }}
             >
-              ○ {item.id}
+              {renderItems(({ ref, item, isDragging }) => (
+                <div
+                  ref={ref}
+                  style={{
+                    opacity: isDragging ? 0.5 : 1,
+                    padding: 8,
+                    margin: 4,
+                    background: '#555',
+                    borderRadius: 4,
+                  }}
+                >
+                  ○ {item.id}
+                </div>
+              ))}
             </div>
           )}
         </DndList.List>
@@ -87,7 +99,7 @@ function GroupedList() {
     console.log('GroupedList dragEnd:', info)
     setBalls((prev) => {
       const ball = prev.find((b) => b.id === info.itemId)
-      if (!ball) return prev
+      if (ball == null) return prev
 
       // Remove ball from current position
       const without = prev.filter((b) => b.id !== info.itemId)
@@ -96,12 +108,12 @@ function GroupedList() {
       const targetBalls = without.filter((b) => b.bucketId === info.toGroupId)
       let newPosition: string
 
-      if (info.afterId) {
+      if (info.afterId != null) {
         const afterBall = targetBalls.find((b) => b.id === info.afterId)
-        newPosition = afterBall ? afterBall.position + '_' : 'a'
-      } else if (info.beforeId) {
+        newPosition = afterBall != null ? afterBall.position + '_' : 'a'
+      } else if (info.beforeId != null) {
         const beforeBall = targetBalls.find((b) => b.id === info.beforeId)
-        newPosition = beforeBall ? beforeBall.position + 'z' : 'z'
+        newPosition = beforeBall != null ? beforeBall.position + 'z' : 'z'
       } else {
         newPosition = 'a'
       }
@@ -121,55 +133,48 @@ function GroupedList() {
       >
         <div style={{ display: 'flex', gap: 16 }}>
           {['bucket-x', 'bucket-y'].map((bucketId) => (
-            <DndList.Group
+            <DndList.List
               key={bucketId}
               config={{
+                items: balls,
+                getId: (b) => b.id,
+                getGroupId: (b) => b.bucketId,
                 groupId: bucketId,
-                accept: ['ball'],
+                compare: (a, b) => (a.position < b.position ? -1 : 1),
+                draggableTypeId: 'ball',
+                acceptsDraggableTypes: ['ball'],
+                collisionPriority: CollisionPriority.High,
               }}
             >
-                {({ ref, isDropTarget }) => (
-                  <div
-                    ref={ref}
-                    style={{
-                      padding: 16,
-                      background: isDropTarget ? '#444' : '#333',
-                      borderRadius: 8,
-                      minWidth: 150,
-                      minHeight: 100,
-                    }}
-                  >
-                    <div style={{ marginBottom: 8 }}>{bucketId}</div>
-                    <DndList.List
-                      config={{
-                        items: balls,
-                        getId: (b) => b.id,
-                        getGroupId: (b) => b.bucketId,
-                        groupId: bucketId,
-                        compare: (a, b) => (a.position < b.position ? -1 : 1),
-                        draggableTypeId: 'ball',
-                        acceptsDraggableTypes: ['ball'],
-                        collisionPriority: CollisionPriority.High,
+              {({ containerRef, isDropTarget, renderItems }) => (
+                <div
+                  ref={containerRef}
+                  style={{
+                    padding: 16,
+                    background: isDropTarget ? '#444' : '#333',
+                    borderRadius: 8,
+                    minWidth: 150,
+                    minHeight: 100,
+                  }}
+                >
+                  <div style={{ marginBottom: 8 }}>{bucketId}</div>
+                  {renderItems(({ ref, item, isDragging }) => (
+                    <div
+                      ref={ref}
+                      style={{
+                        opacity: isDragging ? 0.5 : 1,
+                        padding: 8,
+                        margin: 4,
+                        background: '#555',
+                        borderRadius: 4,
                       }}
                     >
-                      {({ ref, item, isDragging }) => (
-                        <div
-                          ref={ref}
-                          style={{
-                            opacity: isDragging ? 0.5 : 1,
-                            padding: 8,
-                            margin: 4,
-                            background: '#555',
-                            borderRadius: 4,
-                          }}
-                        >
-                          ○ {item.id}
-                        </div>
-                      )}
-                    </DndList.List>
-                  </div>
-                )}
-              </DndList.Group>
+                      ○ {item.id}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </DndList.List>
           ))}
         </div>
       </DndList.Root>
@@ -196,14 +201,57 @@ const initialBoxes: Box[] = [
 ]
 
 function NestedList() {
-  const [shelves] = useState(initialShelves)
-  const [boxes] = useState(initialBoxes)
+  const [shelves, setShelves] = useState(initialShelves)
+  const [boxes, setBoxes] = useState(initialBoxes)
 
   const handleDragOver = (info: MoveInfo) => {
     console.log('NestedList dragOver:', info)
   }
   const handleDragEnd = (info: MoveInfo) => {
     console.log('NestedList dragEnd:', info)
+
+    if (info.draggableTypeId === 'box') {
+      setBoxes((prev) => {
+        const box = prev.find((b) => b.id === info.itemId)
+        if (box == null) return prev
+
+        const without = prev.filter((b) => b.id !== info.itemId)
+        const targetBoxes = without.filter((b) => b.shelfId === info.toGroupId)
+        let newPosition: string
+
+        if (info.afterId != null) {
+          const afterBox = targetBoxes.find((b) => b.id === info.afterId)
+          newPosition = afterBox != null ? afterBox.position + '_' : 'a'
+        } else if (info.beforeId != null) {
+          const beforeBox = targetBoxes.find((b) => b.id === info.beforeId)
+          newPosition = beforeBox != null ? beforeBox.position + 'z' : 'z'
+        } else {
+          newPosition = 'a'
+        }
+
+        return [...without, { ...box, shelfId: info.toGroupId, position: newPosition }]
+      })
+    } else if (info.draggableTypeId === 'shelf') {
+      setShelves((prev) => {
+        const shelf = prev.find((s) => s.id === info.itemId)
+        if (shelf == null) return prev
+
+        const without = prev.filter((s) => s.id !== info.itemId)
+        let newPosition: string
+
+        if (info.afterId != null) {
+          const afterShelf = without.find((s) => s.id === info.afterId)
+          newPosition = afterShelf != null ? afterShelf.position + '_' : 'a'
+        } else if (info.beforeId != null) {
+          const beforeShelf = without.find((s) => s.id === info.beforeId)
+          newPosition = beforeShelf != null ? beforeShelf.position + 'z' : 'z'
+        } else {
+          newPosition = 'a'
+        }
+
+        return [...without, { ...shelf, position: newPosition }]
+      })
+    }
   }
 
   return (
@@ -221,7 +269,7 @@ function NestedList() {
           .map((shelf, index, sortedShelves) => {
             const prevShelf = sortedShelves[index - 1]
             return (
-              <DndList.SortableGroup
+              <DndList.Group
                 key={shelf.id}
                 config={{
                   id: shelf.id,
@@ -246,37 +294,49 @@ function NestedList() {
                     }}
                   >
                     <div style={{ marginBottom: 8 }}>▣ {shelf.id}</div>
-                    <div style={{ display: 'flex', gap: 8, minHeight: 40 }}>
-                      <DndList.List
-                        config={{
-                          items: boxes,
-                          getId: (b) => b.id,
-                          getGroupId: (b) => b.shelfId,
-                          groupId: shelf.id,
-                          compare: (a, b) => (a.position < b.position ? -1 : 1),
-                          draggableTypeId: 'box',
-                          acceptsDraggableTypes: ['box'],
-                          collisionPriority: CollisionPriority.High,
-                        }}
-                      >
-                        {({ ref, item: box, isDragging }) => (
-                          <div
-                            ref={ref}
-                            style={{
-                              opacity: isDragging ? 0.5 : 1,
-                              padding: 8,
-                              background: '#555',
-                              borderRadius: 4,
-                            }}
-                          >
-                            □ {box.id}
-                          </div>
-                        )}
-                      </DndList.List>
-                    </div>
+                    <DndList.List
+                      config={{
+                        items: boxes,
+                        getId: (b) => b.id,
+                        getGroupId: (b) => b.shelfId,
+                        groupId: shelf.id,
+                        compare: (a, b) => (a.position < b.position ? -1 : 1),
+                        draggableTypeId: 'box',
+                        acceptsDraggableTypes: ['box'],
+                        collisionPriority: CollisionPriority.High,
+                      }}
+                    >
+                      {({ containerRef, isDropTarget: isListDropTarget, renderItems }) => (
+                        <div
+                          ref={containerRef}
+                          style={{
+                            display: 'flex',
+                            gap: 8,
+                            minHeight: 40,
+                            background: isListDropTarget ? '#555' : 'transparent',
+                            padding: 4,
+                            borderRadius: 4,
+                          }}
+                        >
+                          {renderItems(({ ref, item: box, isDragging }) => (
+                            <div
+                              ref={ref}
+                              style={{
+                                opacity: isDragging ? 0.5 : 1,
+                                padding: 8,
+                                background: '#666',
+                                borderRadius: 4,
+                              }}
+                            >
+                              □ {box.id}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </DndList.List>
                   </div>
                 )}
-              </DndList.SortableGroup>
+              </DndList.Group>
             )
           })}
       </DndList.Root>
@@ -287,71 +347,6 @@ function NestedList() {
 // ============================================
 // Example 4: Direct dnd-kit (buckets with balls)
 // ============================================
-type DirectBall = { id: string; bucketId: string; position: string }
-
-const directInitialBalls: DirectBall[] = [
-  { id: 'dball-1', bucketId: 'dbucket-x', position: 'a' },
-  { id: 'dball-2', bucketId: 'dbucket-x', position: 'b' },
-  { id: 'dball-3', bucketId: 'dbucket-x', position: 'c' },
-  { id: 'dball-4', bucketId: 'dbucket-y', position: 'a' },
-]
-
-function DirectBallItem({ ball, index }: { ball: DirectBall; index: number }) {
-  const { ref, isDragging } = useSortable({
-    id: ball.id,
-    index,
-    type: 'dball',
-    accept: ['dball'],
-    group: ball.bucketId,
-    collisionPriority: CollisionPriority.High,
-  })
-
-  return (
-    <div
-      ref={ref}
-      style={{
-        opacity: isDragging ? 0.5 : 1,
-        padding: 8,
-        margin: 4,
-        background: '#555',
-        borderRadius: 4,
-      }}
-    >
-      ○ {ball.id}
-    </div>
-  )
-}
-
-function DirectBucket({ bucketId, balls }: { bucketId: string; balls: DirectBall[] }) {
-  const { ref, isDropTarget } = useDroppable({
-    id: bucketId,
-    type: 'dbucket',
-    accept: ['dball'],
-    collisionPriority: CollisionPriority.Low,
-  })
-
-  const bucketBalls = balls
-    .filter((b) => b.bucketId === bucketId)
-    .sort((a, b) => (a.position < b.position ? -1 : 1))
-
-  return (
-    <div
-      ref={ref}
-      style={{
-        padding: 16,
-        background: isDropTarget ? '#444' : '#333',
-        borderRadius: 8,
-        minWidth: 150,
-        minHeight: 100,
-      }}
-    >
-      <div style={{ marginBottom: 8 }}>{bucketId}</div>
-      {bucketBalls.map((ball, index) => (
-        <DirectBallItem key={ball.id} ball={ball} index={index} />
-      ))}
-    </div>
-  )
-}
 
 function DirectBallV2({ ballId, index, bucketId }: { ballId: string; index: number; bucketId: string }) {
   const { ref, isDragging } = useSortable({
