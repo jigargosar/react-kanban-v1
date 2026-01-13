@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { type Card, type Column, getSortedBoards } from './model'
 import { useAppStore } from './store'
-import { Dnd, type MoveInfo } from './dnd'
+import { DndList, type MoveInfo } from './DndList'
+import { CollisionPriority } from '@dnd-kit/abstract'
 
 function assertNever(value: never, msg?: string): never {
   throw new Error(msg ?? `Unexpected value: ${String(value)}`)
@@ -287,55 +288,63 @@ function ColumnContent({
   const hasCardsButNoMatch = searchTerm.length > 0 && columnCards.length > 0 && Object.keys(filteredCards).length === 0
 
   return (
-    <div className="flex flex-col gap-2 overflow-y-auto flex-1 p-4 min-h-24">
-      {hasCardsButNoMatch && (
-        <div className="text-gray-500 text-sm p-2">No cards match</div>
-      )}
-      <Dnd.List
-        items={filteredCards}
-        getId={(c) => c.id}
-        group={column.id}
-        getGroupId={(c) => c.columnId}
-        compare={(a, b) => (a.position < b.position ? -1 : 1)}
-        type="card"
-        accept="card"
-      >
-        {({ ref, item: card, isDragging }) => {
-          const isCardEditing = editing?.type === 'card' && editing.id === card.id
-          return (
-            <CardItem
-              key={card.id}
-              cardRef={ref}
-              card={card}
-              isDragging={isDragging}
-              isEditing={isCardEditing}
-              onStartEdit={() => { startEditing('card', card.id); }}
-              onSaveEdit={(title) => {
-                updateCard(card.id, title)
-                stopEditing()
-              }}
-              onCancelEdit={stopEditing}
-              onDelete={() => { deleteCard(card.id); }}
-            />
-          )
-        }}
-      </Dnd.List>
-      {isAdding ? (
-        <AddCardInput
-          onAdd={(title) => {
-            addCard(column.id, title)
-          }}
-          onCancel={() => { setIsAdding(false); }}
-        />
-      ) : (
-        <button
-          onClick={() => { setIsAdding(true); }}
-          className="text-gray-400 hover:text-gray-200 text-left p-2 rounded hover:bg-gray-700 transition-colors"
+    <DndList.List
+      config={{
+        items: Object.values(filteredCards),
+        getId: (c) => c.id,
+        getGroupId: (c) => c.columnId,
+        groupId: column.id,
+        compare: (a, b) => (a.position < b.position ? -1 : 1),
+        draggableTypeId: 'card',
+        acceptsDraggableTypes: ['card'],
+        collisionPriority: CollisionPriority.High,
+      }}
+    >
+      {({ containerRef, isDropTarget, renderItems }) => (
+        <div
+          ref={containerRef}
+          className={`flex flex-col gap-2 overflow-y-auto flex-1 p-4 min-h-24 ${isDropTarget ? 'bg-gray-700/30' : ''}`}
         >
-          + Add card
-        </button>
+          {hasCardsButNoMatch && (
+            <div className="text-gray-500 text-sm p-2">No cards match</div>
+          )}
+          {renderItems(({ ref, item: card, isDragging }) => {
+            const isCardEditing = editing?.type === 'card' && editing.id === card.id
+            return (
+              <CardItem
+                key={card.id}
+                cardRef={ref}
+                card={card}
+                isDragging={isDragging}
+                isEditing={isCardEditing}
+                onStartEdit={() => { startEditing('card', card.id); }}
+                onSaveEdit={(title) => {
+                  updateCard(card.id, title)
+                  stopEditing()
+                }}
+                onCancelEdit={stopEditing}
+                onDelete={() => { deleteCard(card.id); }}
+              />
+            )
+          })}
+          {isAdding ? (
+            <AddCardInput
+              onAdd={(title) => {
+                addCard(column.id, title)
+              }}
+              onCancel={() => { setIsAdding(false); }}
+            />
+          ) : (
+            <button
+              onClick={() => { setIsAdding(true); }}
+              className="text-gray-400 hover:text-gray-200 text-left p-2 rounded hover:bg-gray-700 transition-colors"
+            >
+              + Add card
+            </button>
+          )}
+        </div>
       )}
-    </div>
+    </DndList.List>
   )
 }
 
@@ -450,7 +459,7 @@ function SearchInput({
 
 // Main App
 function App() {
-  const { cards, columns, activeBoardId, status, reset, moveCard, moveColumn, editing, startEditing, stopEditing, initAuth, updateColumn, deleteColumn } = useAppStore()
+  const { columns, activeBoardId, status, reset, moveCard, moveColumn, editing, startEditing, stopEditing, initAuth, updateColumn, deleteColumn } = useAppStore()
   const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
@@ -458,7 +467,7 @@ function App() {
   }, [initAuth])
 
   const handleMove = (info: MoveInfo, persist: boolean) => {
-    switch (info.type) {
+    switch (info.draggableTypeId) {
       case 'card':
         moveCard({
           cardId: info.itemId,
@@ -477,7 +486,7 @@ function App() {
         })
         break
       default:
-        assertNever(info.type as never)
+        assertNever(info.draggableTypeId as never)
     }
   }
 
@@ -518,43 +527,52 @@ function App() {
               Create your first board to get started
             </div>
           ) : (
-            <Dnd.Root onDragOver={(info) => { handleMove(info, false); }} onDragEnd={(info) => { handleMove(info, true); }}>
+            <DndList.Root config={{ onDragOver: (info) => { handleMove(info, false); }, onDragEnd: (info) => { handleMove(info, true); } }}>
               <div className="flex gap-4 h-full">
-                <Dnd.ColumnList
-                  columns={boardColumns}
-                  cards={cards}
-                  getColumnId={(c) => c.id}
-                  getCardId={(c) => c.id}
-                  getCardColumnId={(c) => c.columnId}
-                  compareColumns={(a, b) => (a.position < b.position ? -1 : 1)}
-                  compareCards={(a, b) => (a.position < b.position ? -1 : 1)}
-                >
-                  {({ ref, column, isDragging }) => {
+                {Object.values(boardColumns)
+                  .sort((a, b) => (a.position < b.position ? -1 : 1))
+                  .map((column, index, sortedColumns) => {
+                    const prevColumn = sortedColumns[index - 1]
                     const isColumnEditing = editing?.type === 'column' && editing.id === column.id
                     return (
-                      <div
-                        ref={ref}
-                        className={`group bg-gray-800 rounded-lg w-72 shrink-0 flex flex-col max-h-full ${isDragging ? 'opacity-50' : ''}`}
+                      <DndList.Group
+                        key={column.id}
+                        config={{
+                          id: column.id,
+                          index,
+                          draggableTypeId: 'column',
+                          acceptsDraggableTypes: ['column'],
+                          groupId: 'board',
+                          prevId: prevColumn?.id ?? null,
+                          acceptsChildTypes: ['card'],
+                          collisionPriority: CollisionPriority.Low,
+                        }}
                       >
-                        <ColumnHeader
-                          column={column}
-                          isEditing={isColumnEditing}
-                          onStartEdit={() => { startEditing('column', column.id); }}
-                          onSaveEdit={(title) => {
-                            updateColumn(column.id, title)
-                            stopEditing()
-                          }}
-                          onCancelEdit={stopEditing}
-                          onDelete={() => { deleteColumn(column.id); }}
-                        />
-                        <ColumnContent column={column} searchTerm={searchTerm} />
-                      </div>
+                        {({ ref, isDragging, isDropTarget }) => (
+                          <div
+                            ref={ref}
+                            className={`group bg-gray-800 rounded-lg w-72 shrink-0 flex flex-col max-h-full ${isDragging ? 'opacity-50' : ''} ${isDropTarget ? 'ring-2 ring-blue-500' : ''}`}
+                          >
+                            <ColumnHeader
+                              column={column}
+                              isEditing={isColumnEditing}
+                              onStartEdit={() => { startEditing('column', column.id); }}
+                              onSaveEdit={(title) => {
+                                updateColumn(column.id, title)
+                                stopEditing()
+                              }}
+                              onCancelEdit={stopEditing}
+                              onDelete={() => { deleteColumn(column.id); }}
+                            />
+                            <ColumnContent column={column} searchTerm={searchTerm} />
+                          </div>
+                        )}
+                      </DndList.Group>
                     )
-                  }}
-                </Dnd.ColumnList>
+                  })}
                 <AddColumnButton />
               </div>
-            </Dnd.Root>
+            </DndList.Root>
           )}
         </div>
       </div>
