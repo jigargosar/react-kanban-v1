@@ -9,7 +9,7 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', 'sandbox', 'src/database.types.ts']),
+  globalIgnores(['dist', 'sandbox', 'src/database.types.ts', 'src/stories']),
   {
     files: ['src/**/*.{ts,tsx}'],
     extends: [
