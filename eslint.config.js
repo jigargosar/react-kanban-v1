@@ -1,5 +1,5 @@
 // For more info, see https://github.com/storybookjs/eslint-plugin-storybook#configuration-flat-config-format
-import storybook from "eslint-plugin-storybook";
+// import storybook from "eslint-plugin-storybook";
 
 import js from '@eslint/js'
 import globals from 'globals'
@@ -9,7 +9,7 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', 'sandbox', 'src/database.types.ts', 'src/stories']),
+  globalIgnores(['dist', 'sandbox', 'src/database.types.ts']),
   {
     files: ['src/**/*.{ts,tsx}'],
     extends: [
