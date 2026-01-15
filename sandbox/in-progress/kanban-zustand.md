@@ -345,18 +345,18 @@ MutationQueue.process()
 const columnsForActiveBoard = (state: ReadyState): Column[] =>
   Object.values(state.columns)
     .filter(c => c.boardId === state.activeBoardId)
-    .sort((a, b) => a.position.localeCompare(b.position));
+    .sort((a, b) => (a.position < b.position ? -1 : a.position > b.position ? 1 : 0));
 
 // Tasks for a column, sorted by position
 const tasksForColumn = (state: ReadyState, columnId: string): Task[] =>
   Object.values(state.tasks)
     .filter(t => t.columnId === columnId)
-    .sort((a, b) => a.position.localeCompare(b.position));
+    .sort((a, b) => (a.position < b.position ? -1 : a.position > b.position ? 1 : 0));
 
 // All boards sorted by position
 const sortedBoards = (state: ReadyState): Board[] =>
   Object.values(state.boards)
-    .sort((a, b) => a.position.localeCompare(b.position));
+    .sort((a, b) => (a.position < b.position ? -1 : a.position > b.position ? 1 : 0));
 
 // Future selectors:
 // - tasksMatchingSearch(query)
