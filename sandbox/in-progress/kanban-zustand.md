@@ -1,5 +1,13 @@
 # Kanban State Model (Zustand)
 
+> **How to read this document**
+>
+> This is a *reference design* — what the state model would look like if designed from scratch with ISI (Impossible States Impossible) principles. It captures the *spirit* of the architecture, not a literal refactoring spec.
+>
+> The current codebase may differ in naming (`Card` vs `Task`, `editing` vs `Interaction`) and structural details. That's fine. Use this as a north star for design decisions, not a checklist of renames.
+
+---
+
 This document describes the state model for the kanban application using TypeScript discriminated unions and Zustand.
 
 See `kanban-design.md` for requirements and core architecture concepts.
@@ -361,20 +369,20 @@ const sortedBoards = (state: ReadyState): Board[] =>
 
 ## Simplifications (Current vs Future)
 
-| Concern | Current | Future |
-|---------|---------|--------|
-| Data loading | All upfront | Paginated, lazy load per board |
-| Error handling | Single mutationError | Per-entity errors, retry actions |
-| Auth | OAuth only | Email/password, magic link |
-| Entity states | Just data | archived, deleted soft states |
-| Delete | Hard delete (Supabase cascade) | Soft delete with archive |
-| Confirmations | Component-level | Interaction state with confirm dialogs |
-| Drag & drop | View handles, calls moveX | Interaction state tracks drag |
-| Forms | Component-local state | Could move to interaction if complex |
-| Multi-select | Not supported | bulk operations |
-| Undo/redo | Not supported | Action stack |
-| Offline | Not supported | Queue persistence, sync status |
-| Real-time | Not supported | Supabase subscriptions |
+| Concern        | Current                        | Future                                 |
+|----------------|--------------------------------|----------------------------------------|
+| Data loading   | All upfront                    | Paginated, lazy load per board         |
+| Error handling | Single mutationError           | Per-entity errors, retry actions       |
+| Auth           | OAuth only                     | Email/password, magic link             |
+| Entity states  | Just data                      | archived, deleted soft states          |
+| Delete         | Hard delete (Supabase cascade) | Soft delete with archive               |
+| Confirmations  | Component-level                | Interaction state with confirm dialogs |
+| Drag & drop    | View handles, calls moveX      | Interaction state tracks drag          |
+| Forms          | Component-local state          | Could move to interaction if complex   |
+| Multi-select   | Not supported                  | bulk operations                        |
+| Undo/redo      | Not supported                  | Action stack                           |
+| Offline        | Not supported                  | Queue persistence, sync status         |
+| Real-time      | Not supported                  | Supabase subscriptions                 |
 
 ---
 
