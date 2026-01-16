@@ -140,22 +140,22 @@ type Card = {
 
 **Principle:** If only one component needs to know, keep it local.
 
-| State | Where | Why |
-|-------|-------|-----|
-| Edit mode (inline) | Component `useState` | Only the entity component needs to know |
-| Add mode | Component `useState` | Only the add button/form needs to know |
-| Dialog open | Component `useState` or Router | Triggered from entity component, or URL-driven |
-| Which board active | Store | Multiple components need this (header, columns) |
-| Entity data | Store | Shared across components, persisted |
+| State              | Where                          | Why                                             |
+|--------------------|--------------------------------|-------------------------------------------------|
+| Edit mode (inline) | Component `useState`           | Only the entity component needs to know         |
+| Add mode           | Component `useState`           | Only the add button/form needs to know          |
+| Dialog open        | Component `useState` or Router | Triggered from entity component, or URL-driven  |
+| Which board active | Store                          | Multiple components need this (header, columns) |
+| Entity data        | Store                          | Shared across components, persisted             |
 
 **Edit/Add flow:**
-```typescript
+```tsx
 // Component-local edit
 function CardItem({ card }) {
   const [isEditing, setIsEditing] = useState(false)
   
   return isEditing 
-    ? <EditableInput onSave={...} onCancel={() => setIsEditing(false)} />
+    ? <EditableInput onSave={()=>{/*infer*/}} onCancel={() => setIsEditing(false)} />
     : <div onDoubleClick={() => setIsEditing(true)}>{card.title}</div>
 }
 
@@ -390,22 +390,22 @@ const sortedBoards = (data: ReadyData): Board[] =>
 
 ## Simplifications (Current vs Future)
 
-| Concern | Current | Future |
-|---------|---------|--------|
-| Data loading | All upfront | Paginated, lazy load per board |
-| Error handling | Single mutationError, manual dismiss | Per-entity errors, retry actions |
-| Rollback | None (optimistic stays) | Revert state on failure |
-| Auth | OAuth only | Email/password, magic link |
-| Entity states | Just data | archived, deleted soft states |
-| Delete | Hard delete (Supabase cascade) | Soft delete with archive |
-| Edit/add state | Component-local | Store (if cross-component needed) |
-| Dialogs | Component-local or router | Store (if complex coordination needed) |
-| Confirmations | Component-level | Could move to store if needed |
-| Drag & drop | View handles via dnd-kit | Same |
-| Multi-select | Not supported | Bulk operations via store |
-| Undo/redo | Not supported | Action stack in store |
-| Offline | Not supported | Queue persistence, sync status |
-| Real-time | Not supported | Supabase subscriptions |
+| Concern        | Current                              | Future                                 |
+|----------------|--------------------------------------|----------------------------------------|
+| Data loading   | All upfront                          | Paginated, lazy load per board         |
+| Error handling | Single mutationError, manual dismiss | Per-entity errors, retry actions       |
+| Rollback       | None (optimistic stays)              | Revert state on failure                |
+| Auth           | OAuth only                           | Email/password, magic link             |
+| Entity states  | Just data                            | archived, deleted soft states          |
+| Delete         | Hard delete (Supabase cascade)       | Soft delete with archive               |
+| Edit/add state | Component-local                      | Store (if cross-component needed)      |
+| Dialogs        | Component-local or router            | Store (if complex coordination needed) |
+| Confirmations  | Component-level                      | Could move to store if needed          |
+| Drag & drop    | View handles via dnd-kit             | Same                                   |
+| Multi-select   | Not supported                        | Bulk operations via store              |
+| Undo/redo      | Not supported                        | Action stack in store                  |
+| Offline        | Not supported                        | Queue persistence, sync status         |
+| Real-time      | Not supported                        | Supabase subscriptions                 |
 
 ---
 
