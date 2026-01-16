@@ -1,5 +1,13 @@
 # Kanban State Model (Zustand)
 
+> **How to read this document**
+>
+> This is a *reference design* — what the state model would look like if designed from scratch with ISI (Impossible States Impossible) principles. It captures the *spirit* of the architecture, not a literal refactoring spec.
+>
+> The current codebase may differ in naming and structural details. That's fine. Use this as a north star for design decisions, not a checklist of renames.
+
+---
+
 This document describes the state model for the kanban application using TypeScript discriminated unions and Zustand.
 
 See `kanban-design.md` for requirements and core architecture concepts.
@@ -358,18 +366,18 @@ MutationQueue.process()
 const columnsForActiveBoard = (data: ReadyData): Column[] =>
   Object.values(data.columns)
     .filter(c => c.boardId === data.activeBoardId)
-    .sort((a, b) => a.position.localeCompare(b.position));
+    .sort((a, b) => (a.position < b.position ? -1 : a.position > b.position ? 1 : 0));
 
 // Cards for a column, sorted by position
 const cardsForColumn = (data: ReadyData, columnId: ColumnId): Card[] =>
   Object.values(data.cards)
     .filter(c => c.columnId === columnId)
-    .sort((a, b) => a.position.localeCompare(b.position));
+    .sort((a, b) => (a.position < b.position ? -1 : a.position > b.position ? 1 : 0));
 
 // All boards sorted by position
 const sortedBoards = (data: ReadyData): Board[] =>
   Object.values(data.boards)
-    .sort((a, b) => a.position.localeCompare(b.position));
+    .sort((a, b) => (a.position < b.position ? -1 : a.position > b.position ? 1 : 0));
 
 // Future selectors:
 // - cardsMatchingSearch(query)
