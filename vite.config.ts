@@ -15,7 +15,9 @@ export default defineConfig({
     },
   },
   plugins: [
-    react(),
+    react({
+      tsDecorators: true,
+    }),
     tailwindcss(),
     checker({
       typescript: {
