@@ -1,0 +1,600 @@
+import { useState, useRef, useEffect } from 'react'
+import { type Card, type Column, getSortedBoards } from './model'
+import { useAppStoreV2, type AppState, type ReadyData } from './store-v2'
+import { DndList, type MoveInfo } from '@external-lib/DndList'
+import { CollisionPriority } from '@dnd-kit/abstract'
+
+function assertNever(value: never, msg?: string): never {
+  throw new Error(msg ?? `Unexpected value: ${String(value)}`)
+}
+
+// Editable text input (used for both cards and columns)
+function EditableInput({
+  value,
+  onSave,
+  onCancel,
+  className,
+}: {
+  value: string
+  onSave: (value: string) => void
+  onCancel: () => void
+  className?: string
+}) {
+  const [text, setText] = useState(value)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    inputRef.current?.focus()
+    inputRef.current?.select()
+  }, [])
+
+  const handleSave = () => {
+    const trimmed = text.trim()
+    if (trimmed && trimmed !== value) {
+      onSave(trimmed)
+    } else {
+      onCancel()
+    }
+  }
+
+  return (
+    <input
+      ref={inputRef}
+      type="text"
+      value={text}
+      onChange={(e) => { setText(e.target.value); }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') handleSave()
+        if (e.key === 'Escape') onCancel()
+      }}
+      onBlur={handleSave}
+      className={className}
+    />
+  )
+}
+
+// Board selector dropdown
+function BoardSelector({ data }: { data: ReadyData }) {
+  const [isAdding, setIsAdding] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const { setActiveBoard, addBoard, updateBoard, deleteBoard } = useAppStoreV2.getState()
+  const sortedBoards = getSortedBoards(data.boards)
+  const activeBoard = data.activeBoardId != null ? data.boards[data.activeBoardId] : null
+
+  if (isAdding) {
+    return (
+      <EditableInput
+        value=""
+        onSave={(title) => {
+          addBoard(title)
+          setIsAdding(false)
+        }}
+        onCancel={() => { setIsAdding(false); }}
+        className="bg-gray-700 text-gray-100 rounded px-3 py-1 outline-none w-48"
+      />
+    )
+  }
+
+  if (isEditing && activeBoard != null) {
+    return (
+      <EditableInput
+        value={activeBoard.title}
+        onSave={(title) => {
+          updateBoard(activeBoard.id, title)
+          setIsEditing(false)
+        }}
+        onCancel={() => { setIsEditing(false); }}
+        className="bg-gray-700 text-gray-100 rounded px-3 py-1 outline-none w-48"
+      />
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      {activeBoard != null ? (
+        <>
+          <select
+            value={activeBoard.id}
+            onChange={(e) => { setActiveBoard(e.target.value); }}
+            className="bg-gray-700 text-gray-100 rounded px-3 py-1 outline-none cursor-pointer"
+          >
+            {sortedBoards.map((board) => (
+              <option key={board.id} value={board.id}>
+                {board.title}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={() => { setIsEditing(true); }}
+            className="text-gray-400 hover:text-gray-200 p-1 rounded hover:bg-gray-700"
+            title="Edit board"
+          >
+            ✎
+          </button>
+          <button
+            onClick={() => { deleteBoard(activeBoard.id); }}
+            className="text-gray-400 hover:text-gray-200 p-1 rounded hover:bg-gray-700"
+            title="Delete board"
+          >
+            ×
+          </button>
+        </>
+      ) : null}
+      <button
+        onClick={() => { setIsAdding(true); }}
+        className="text-gray-400 hover:text-gray-200 px-2 py-1 rounded hover:bg-gray-700"
+        data-testid="add-board-button"
+      >
+        + New Board
+      </button>
+    </div>
+  )
+}
+
+// Card component
+function CardItem({
+  cardRef,
+  card,
+  isDragging,
+}: {
+  cardRef: (element: HTMLElement | null) => void
+  card: Card
+  isDragging: boolean
+}) {
+  const [isEditing, setIsEditing] = useState(false)
+  const { updateCard, deleteCard } = useAppStoreV2.getState()
+
+  return (
+    <div
+      ref={cardRef}
+      className={`group relative bg-gray-700 rounded p-3 shadow text-gray-100 cursor-grab ${isDragging ? 'opacity-50' : ''}`}
+      onDoubleClick={() => { setIsEditing(true); }}
+    >
+      {isEditing ? (
+        <EditableInput
+          value={card.title}
+          onSave={(title) => {
+            updateCard(card.id, title)
+            setIsEditing(false)
+          }}
+          onCancel={() => { setIsEditing(false); }}
+          className="w-full bg-gray-600 text-gray-100 rounded px-1 -mx-1 outline-none"
+        />
+      ) : (
+        <>
+          {card.title}
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              deleteCard(card.id)
+            }}
+            className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 text-gray-400 hover:text-gray-200 p-1 rounded hover:bg-gray-600 transition-opacity"
+          >
+            ×
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
+// Add card input
+function AddCardInput({
+  onAdd,
+  onCancel,
+}: {
+  onAdd: (title: string) => void
+  onCancel: () => void
+}) {
+  const [title, setTitle] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    inputRef.current?.focus()
+  }, [])
+
+  const handleSubmit = () => {
+    const trimmed = title.trim()
+    if (trimmed) {
+      onAdd(trimmed)
+      setTitle('')
+    } else {
+      onCancel()
+    }
+  }
+
+  return (
+    <input
+      ref={inputRef}
+      type="text"
+      value={title}
+      onChange={(e) => { setTitle(e.target.value); }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') handleSubmit()
+        if (e.key === 'Escape') onCancel()
+      }}
+      onBlur={handleSubmit}
+      placeholder="Card title..."
+      className="w-full bg-gray-700 text-gray-100 rounded p-3 outline-none placeholder-gray-400"
+    />
+  )
+}
+
+// Column header
+function ColumnHeader({
+  column,
+  onDelete,
+}: {
+  column: Column
+  onDelete: () => void
+}) {
+  const [isEditing, setIsEditing] = useState(false)
+  const { updateColumn } = useAppStoreV2.getState()
+
+  return (
+    <div className="flex items-center justify-between p-4 pb-0">
+      {isEditing ? (
+        <EditableInput
+          value={column.title}
+          onSave={(title) => {
+            updateColumn(column.id, title)
+            setIsEditing(false)
+          }}
+          onCancel={() => { setIsEditing(false); }}
+          className="flex-1 bg-gray-700 text-gray-100 font-semibold rounded px-2 py-1 outline-none"
+        />
+      ) : (
+        <h2
+          className="text-gray-100 font-semibold cursor-pointer"
+          onDoubleClick={() => { setIsEditing(true); }}
+        >
+          {column.title}
+        </h2>
+      )}
+      <button
+        onClick={onDelete}
+        className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 text-gray-400 hover:text-gray-200 p-1 rounded hover:bg-gray-700 transition-opacity ml-2"
+      >
+        ×
+      </button>
+    </div>
+  )
+}
+
+// Column content (cards list)
+function ColumnContent({
+  column,
+  cards,
+  searchTerm,
+}: {
+  column: Column
+  cards: Record<string, Card>
+  searchTerm: string
+}) {
+  const [isAdding, setIsAdding] = useState(false)
+  const { addCard } = useAppStoreV2.getState()
+
+  // Filter cards by search term
+  const columnCards = Object.entries(cards).filter(([, card]) => card.columnId === column.id)
+  const filteredCards = Object.fromEntries(
+    columnCards.filter(([, card]) =>
+      card.title.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  )
+  const hasCardsButNoMatch = searchTerm.length > 0 && columnCards.length > 0 && Object.keys(filteredCards).length === 0
+
+  return (
+    <DndList.List
+      config={{
+        items: Object.values(filteredCards),
+        getId: (c) => c.id,
+        getGroupId: (c) => c.columnId,
+        groupId: column.id,
+        compare: (a, b) => (a.position < b.position ? -1 : 1),
+        draggableTypeId: 'card',
+        acceptsDraggableTypes: ['card'],
+        collisionPriority: CollisionPriority.High,
+      }}
+    >
+      {({ containerRef, isDropTarget, renderItems }) => (
+        <div
+          ref={containerRef}
+          className={`flex flex-col gap-2 overflow-y-auto flex-1 p-4 min-h-24 ${isDropTarget ? 'bg-gray-700/30' : ''}`}
+        >
+          {hasCardsButNoMatch && (
+            <div className="text-gray-500 text-sm p-2">No cards match</div>
+          )}
+          {renderItems(({ ref, item: card, isDragging }) => (
+            <CardItem
+              key={card.id}
+              cardRef={ref}
+              card={card}
+              isDragging={isDragging}
+            />
+          ))}
+          {isAdding ? (
+            <AddCardInput
+              onAdd={(title) => {
+                addCard(column.id, title)
+              }}
+              onCancel={() => { setIsAdding(false); }}
+            />
+          ) : (
+            <button
+              onClick={() => { setIsAdding(true); }}
+              className="text-gray-400 hover:text-gray-200 text-left p-2 rounded hover:bg-gray-700 transition-colors"
+            >
+              + Add card
+            </button>
+          )}
+        </div>
+      )}
+    </DndList.List>
+  )
+}
+
+// Add column button
+function AddColumnButton() {
+  const [isAdding, setIsAdding] = useState(false)
+  const { addColumn } = useAppStoreV2.getState()
+
+  if (isAdding) {
+    return (
+      <div className="bg-gray-800 rounded-lg w-72 shrink-0 p-4">
+        <EditableInput
+          value=""
+          onSave={(title) => {
+            addColumn(title)
+            setIsAdding(false)
+          }}
+          onCancel={() => { setIsAdding(false); }}
+          className="w-full bg-gray-700 text-gray-100 rounded p-2 outline-none placeholder-gray-400"
+        />
+      </div>
+    )
+  }
+
+  return (
+    <button
+      onClick={() => { setIsAdding(true); }}
+      className="bg-gray-800/50 hover:bg-gray-800 rounded-lg w-72 shrink-0 p-4 text-gray-400 hover:text-gray-200 text-left transition-colors"
+    >
+      + Add column
+    </button>
+  )
+}
+
+// Error notification (mutation errors)
+function MutationErrorNotification({ data }: { data: ReadyData }) {
+  const { clearMutationError } = useAppStoreV2.getState()
+  if (data.mutationError == null) return null
+
+  return (
+    <div data-testid="error-notification" className="fixed top-4 right-4 bg-red-600 text-white px-4 py-3 rounded shadow-lg flex items-center gap-3">
+      <span>{data.mutationError.message}</span>
+      <button
+        onClick={clearMutationError}
+        className="text-white hover:text-red-200"
+      >
+        ×
+      </button>
+    </div>
+  )
+}
+
+// Auth button
+function AuthButton({ state }: { state: AppState }) {
+  const { signIn, signOut } = useAppStoreV2.getState()
+
+  if (state.tag === 'initializing' || state.tag === 'authenticating') {
+    return null
+  }
+
+  if (state.tag === 'ready') {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-gray-400 text-sm">{state.data.user.name}</span>
+        <button
+          onClick={signOut}
+          className="text-sm text-gray-400 hover:text-gray-200 px-3 py-1 rounded hover:bg-gray-700"
+        >
+          Logout
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <button
+      onClick={signIn}
+      className="text-sm text-gray-400 hover:text-gray-200 px-3 py-1 rounded hover:bg-gray-700"
+    >
+      Login with GitHub
+    </button>
+  )
+}
+
+// Search input
+function SearchInput({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <div className="relative">
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => { onChange(e.target.value); }}
+        placeholder="Search cards..."
+        className="bg-gray-700 text-gray-100 rounded px-3 py-1 pl-8 outline-none placeholder-gray-400 w-48"
+      />
+      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+      {value.length > 0 && (
+        <button
+          onClick={() => { onChange(''); }}
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200"
+        >
+          ×
+        </button>
+      )}
+    </div>
+  )
+}
+
+// Ready view - main kanban board
+function ReadyView({ data }: { data: ReadyData }) {
+  const { moveCard, moveColumn, deleteColumn } = useAppStoreV2.getState()
+  const [searchTerm, setSearchTerm] = useState('')
+
+  const handleMove = (info: MoveInfo, persist: boolean) => {
+    switch (info.draggableTypeId) {
+      case 'card':
+        moveCard({
+          cardId: info.itemId,
+          toColumnId: info.toGroupId,
+          beforeId: info.beforeId,
+          afterId: info.afterId,
+          persist,
+        })
+        break
+      case 'column':
+        moveColumn({
+          columnId: info.itemId,
+          beforeId: info.beforeId,
+          afterId: info.afterId,
+          persist,
+        })
+        break
+      default:
+        assertNever(info.draggableTypeId as never)
+    }
+  }
+
+  // Filter columns for active board
+  const boardColumns = data.activeBoardId != null
+    ? Object.fromEntries(Object.entries(data.columns).filter(([, col]) => col.boardId === data.activeBoardId))
+    : {}
+
+  return (
+    <>
+      <MutationErrorNotification data={data} />
+      <div className="h-screen bg-gray-900 flex flex-col overflow-hidden select-none">
+        <header className="p-8 pb-0 flex items-center gap-4">
+          <h1 className="text-2xl font-bold text-gray-100">Kanban</h1>
+          <BoardSelector data={data} />
+          {data.activeBoardId != null && <SearchInput value={searchTerm} onChange={setSearchTerm} />}
+          <div className="ml-auto flex items-center gap-2">
+            <AuthButton state={{ tag: 'ready', data }} />
+          </div>
+        </header>
+        <div className="flex-1 overflow-x-auto overflow-y-hidden p-8 pt-4">
+          {data.activeBoardId == null ? (
+            <div className="text-gray-400 text-center mt-8">
+              Create your first board to get started
+            </div>
+          ) : (
+            <DndList.Root config={{ onDragOver: (info) => { handleMove(info, false); }, onDragEnd: (info) => { handleMove(info, true); } }}>
+              <div className="flex gap-4 h-full">
+                {Object.values(boardColumns)
+                  .sort((a, b) => (a.position < b.position ? -1 : 1))
+                  .map((column, index, sortedColumns) => {
+                    const prevColumn = sortedColumns[index - 1]
+                    return (
+                      <DndList.Group
+                        key={column.id}
+                        config={{
+                          id: column.id,
+                          index,
+                          draggableTypeId: 'column',
+                          acceptsDraggableTypes: ['column'],
+                          groupId: 'board',
+                          prevId: prevColumn?.id ?? null,
+                          acceptsChildTypes: ['card'],
+                          collisionPriority: CollisionPriority.Low,
+                        }}
+                      >
+                        {({ ref, isDragging, isDropTarget }) => (
+                          <div
+                            ref={ref}
+                            className={`group bg-gray-800 rounded-lg w-72 shrink-0 flex flex-col max-h-full ${isDragging ? 'opacity-50' : ''} ${isDropTarget ? 'ring-2 ring-blue-500' : ''}`}
+                          >
+                            <ColumnHeader
+                              column={column}
+                              onDelete={() => { deleteColumn(column.id); }}
+                            />
+                            <ColumnContent column={column} cards={data.cards} searchTerm={searchTerm} />
+                          </div>
+                        )}
+                      </DndList.Group>
+                    )
+                  })}
+                <AddColumnButton />
+              </div>
+            </DndList.Root>
+          )}
+        </div>
+      </div>
+    </>
+  )
+}
+
+// Main App with state machine
+function AppV2() {
+  const state = useAppStoreV2((s) => s.state)
+  const { initAuth } = useAppStoreV2.getState()
+
+  useEffect(() => {
+    return initAuth()
+  }, [initAuth])
+
+  switch (state.tag) {
+    case 'initializing':
+      return (
+        <div className="h-screen bg-gray-900 flex items-center justify-center">
+          <div className="text-gray-400">Initializing...</div>
+        </div>
+      )
+
+    case 'unauthenticated':
+      return (
+        <div className="h-screen bg-gray-900 flex flex-col items-center justify-center gap-4">
+          <h1 className="text-2xl font-bold text-gray-100">Kanban</h1>
+          <AuthButton state={state} />
+        </div>
+      )
+
+    case 'authenticating':
+      return (
+        <div className="h-screen bg-gray-900 flex items-center justify-center">
+          <div className="text-gray-400">Signing in...</div>
+        </div>
+      )
+
+    case 'authenticated':
+      return (
+        <div className="h-screen bg-gray-900 flex items-center justify-center">
+          <div className="text-gray-400">Loading your boards...</div>
+        </div>
+      )
+
+    case 'error':
+      return (
+        <div className="h-screen bg-gray-900 flex flex-col items-center justify-center gap-4">
+          <div className="text-red-400 text-lg">Something went wrong</div>
+          <div className="text-gray-400">{state.error.message}</div>
+          <AuthButton state={state} />
+        </div>
+      )
+
+    case 'ready':
+      return <ReadyView data={state.data} />
+
+    default:
+      return assertNever(state)
+  }
+}
+
+export default AppV2
