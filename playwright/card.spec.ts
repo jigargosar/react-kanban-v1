@@ -33,7 +33,7 @@ test("card CRUD", async ({ page }) => {
 
   // Rename card (double-click to edit)
   await page.getByText("My Task").dblclick();
-  await page.getByRole("textbox").fill("Updated Task");
+  await page.getByTestId("edit-card-input").fill("Updated Task");
   await page.keyboard.press("Enter");
 
   await expect(page.getByText("Updated Task")).toBeVisible();

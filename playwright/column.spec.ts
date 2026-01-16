@@ -29,7 +29,7 @@ test("column CRUD", async ({ page }) => {
 
   // Rename column (double-click to edit)
   await page.getByText("Todo").dblclick();
-  await page.getByRole("textbox").fill("Done");
+  await page.getByTestId("edit-column-input").fill("Done");
   await page.keyboard.press("Enter");
 
   await expect(page.getByText("Done")).toBeVisible();

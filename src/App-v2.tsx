@@ -14,11 +14,13 @@ function EditableInput({
   onSave,
   onCancel,
   className,
+  testId,
 }: {
   value: string
   onSave: (value: string) => void
   onCancel: () => void
   className?: string
+  testId?: string
 }) {
   const [text, setText] = useState(value)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -49,6 +51,7 @@ function EditableInput({
       }}
       onBlur={handleSave}
       className={className}
+      data-testid={testId}
     />
   )
 }
@@ -85,6 +88,7 @@ function BoardSelector({ data }: { data: ReadyData }) {
         }}
         onCancel={() => { setIsEditing(false); }}
         className="bg-gray-700 text-gray-100 rounded px-3 py-1 outline-none w-48"
+        testId="edit-board-input"
       />
     )
   }
@@ -159,6 +163,7 @@ function CardItem({
           }}
           onCancel={() => { setIsEditing(false); }}
           className="w-full bg-gray-600 text-gray-100 rounded px-1 -mx-1 outline-none"
+          testId="edit-card-input"
         />
       ) : (
         <>
@@ -242,6 +247,7 @@ function ColumnHeader({
           }}
           onCancel={() => { setIsEditing(false); }}
           className="flex-1 bg-gray-700 text-gray-100 font-semibold rounded px-2 py-1 outline-none"
+          testId="edit-column-input"
         />
       ) : (
         <h2
@@ -386,7 +392,8 @@ function MutationErrorNotification({ data }: { data: ReadyData }) {
 function AuthButton({ state }: { state: AppState }) {
   const { signIn, signOut } = useAppStoreV2.getState()
 
-  if (state.tag === 'initializing' || state.tag === 'authenticating') {
+  // Hidden during initializing and loading (like V1's authLoading)
+  if (state.tag === 'initializing' || state.tag === 'loading') {
     return null
   }
 
@@ -446,7 +453,7 @@ function SearchInput({
 
 // Ready view - main kanban board
 function ReadyView({ data }: { data: ReadyData }) {
-  const { moveCard, moveColumn, deleteColumn } = useAppStoreV2.getState()
+  const { moveCard, moveColumn, deleteColumn, reset } = useAppStoreV2.getState()
   const [searchTerm, setSearchTerm] = useState('')
 
   const handleMove = (info: MoveInfo, persist: boolean) => {
@@ -487,6 +494,12 @@ function ReadyView({ data }: { data: ReadyData }) {
           <BoardSelector data={data} />
           {data.activeBoardId != null && <SearchInput value={searchTerm} onChange={setSearchTerm} />}
           <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={reset}
+              className="text-sm text-gray-400 hover:text-gray-200 px-3 py-1 rounded hover:bg-gray-700"
+            >
+              Reset
+            </button>
             <AuthButton state={{ tag: 'ready', data }} />
           </div>
         </header>
@@ -552,9 +565,12 @@ function AppV2() {
 
   switch (state.tag) {
     case 'initializing':
+      // Show app header (for test compatibility), AuthButton hidden
       return (
-        <div className="h-screen bg-gray-900 flex items-center justify-center">
-          <div className="text-gray-400">Initializing...</div>
+        <div className="h-screen bg-gray-900 flex flex-col overflow-hidden select-none">
+          <header className="p-8 pb-0 flex items-center gap-4">
+            <h1 className="text-2xl font-bold text-gray-100">Kanban</h1>
+          </header>
         </div>
       )
 
@@ -566,26 +582,10 @@ function AppV2() {
         </div>
       )
 
-    case 'authenticating':
+    case 'loading':
       return (
         <div className="h-screen bg-gray-900 flex items-center justify-center">
-          <div className="text-gray-400">Signing in...</div>
-        </div>
-      )
-
-    case 'authenticated':
-      return (
-        <div className="h-screen bg-gray-900 flex items-center justify-center">
-          <div className="text-gray-400">Loading your boards...</div>
-        </div>
-      )
-
-    case 'error':
-      return (
-        <div className="h-screen bg-gray-900 flex flex-col items-center justify-center gap-4">
-          <div className="text-red-400 text-lg">Something went wrong</div>
-          <div className="text-gray-400">{state.error.message}</div>
-          <AuthButton state={state} />
+          <div className="text-gray-400">Loading...</div>
         </div>
       )
 

@@ -32,7 +32,8 @@ export async function login(page: Page, request: APIRequestContext) {
   );
 
   await page.goto("/");
-  await expect(page.getByText("Loading")).toBeHidden({ timeout: 15000 });
+  // Wait for app to be ready (Reset button only exists in ready state)
+  await expect(page.getByRole("button", { name: "Reset" })).toBeVisible({ timeout: 15000 });
 }
 
 export async function resetData(page: Page) {

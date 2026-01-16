@@ -24,11 +24,6 @@ type AuthUser = {
   name: string | null
 }
 
-type AppError = {
-  code: string
-  message: string
-}
-
 type MutationError = {
   message: string
 }
@@ -45,9 +40,7 @@ type ReadyData = {
 type AppState =
   | { tag: 'initializing' }
   | { tag: 'unauthenticated' }
-  | { tag: 'authenticating' }
-  | { tag: 'authenticated'; user: AuthUser }
-  | { tag: 'error'; error: AppError }
+  | { tag: 'loading'; user: AuthUser }
   | { tag: 'ready'; data: ReadyData }
 
 // --- Actions ---
@@ -74,6 +67,8 @@ type AppActions = {
   moveColumn: (params: { columnId: ColumnId; beforeId: ColumnId | null; afterId: ColumnId | null; persist?: boolean }) => void
   // Error
   clearMutationError: () => void
+  // Dev/test
+  reset: () => void
 }
 
 // --- Helpers ---
@@ -117,8 +112,44 @@ const useAppStoreV2 = create<Store>((set, get) => {
     state: { tag: 'initializing' },
 
     initAuth: () => {
+      // Helper to load user data (matches V1's load() pattern)
+      const loadUserData = (userData: AuthUser) => {
+        set({ state: { tag: 'loading', user: userData } })
+        api.fetchAll()
+          .then(({ boards, columns, cards, activeBoardId: storedActiveBoardId }) => {
+            const sortedBoards = getSortedBoards(boards)
+            const firstBoard = sortedBoards[0]
+            const activeBoardId = (storedActiveBoardId != null && boards[storedActiveBoardId] != null)
+              ? storedActiveBoardId
+              : (firstBoard?.id ?? null)
+            set({
+              state: {
+                tag: 'ready',
+                data: { user: userData, boards, columns, cards, activeBoardId, mutationError: null }
+              }
+            })
+          })
+          .catch((e: unknown) => {
+            // Non-fatal error: go to ready with empty data and error (like V1)
+            set({
+              state: {
+                tag: 'ready',
+                data: {
+                  user: userData,
+                  boards: {},
+                  columns: {},
+                  cards: {},
+                  activeBoardId: null,
+                  mutationError: { message: e instanceof Error ? e.message : 'Failed to load data' }
+                }
+              }
+            })
+          })
+      }
+
       return api.onAuthStateChange((event, session) => {
         const { state } = get()
+        const prevUser = state.tag === 'ready' ? state.data.user : null
         const newUser = session?.user
         const userData: AuthUser | null = newUser != null
           ? { id: newUser.id, name: (newUser.user_metadata.user_name as string | undefined) ?? newUser.email ?? null }
@@ -128,62 +159,28 @@ const useAppStoreV2 = create<Store>((set, get) => {
           case 'INITIAL_SESSION':
             console.log('[AUTH] INITIAL_SESSION', { userId: userData?.id ?? null, sessionExists: session != null })
             if (userData != null) {
-              set({ state: { tag: 'authenticated', user: userData } })
-              // Load user data
-              api.fetchAll()
-                .then(({ boards, columns, cards, activeBoardId: storedActiveBoardId }) => {
-                  const sortedBoards = getSortedBoards(boards)
-                  const firstBoard = sortedBoards[0]
-                  const activeBoardId = (storedActiveBoardId != null && boards[storedActiveBoardId] != null)
-                    ? storedActiveBoardId
-                    : (firstBoard?.id ?? null)
-                  set({
-                    state: {
-                      tag: 'ready',
-                      data: { user: userData, boards, columns, cards, activeBoardId, mutationError: null }
-                    }
-                  })
-                })
-                .catch((e: unknown) => {
-                  set({ state: { tag: 'error', error: { code: 'LOAD_FAILED', message: e instanceof Error ? e.message : 'Failed to load data' } } })
-                })
+              loadUserData(userData)
             } else {
               set({ state: { tag: 'unauthenticated' } })
             }
             break
 
           case 'SIGNED_IN':
-            console.log('[AUTH] SIGNED_IN', { newUserId: userData?.id ?? null })
-            if (userData != null && (state.tag === 'unauthenticated' || state.tag === 'authenticating')) {
-              set({ state: { tag: 'authenticated', user: userData } })
-              // Load user data
-              api.fetchAll()
-                .then(({ boards, columns, cards, activeBoardId: storedActiveBoardId }) => {
-                  const sortedBoards = getSortedBoards(boards)
-                  const firstBoard = sortedBoards[0]
-                  const activeBoardId = (storedActiveBoardId != null && boards[storedActiveBoardId] != null)
-                    ? storedActiveBoardId
-                    : (firstBoard?.id ?? null)
-                  set({
-                    state: {
-                      tag: 'ready',
-                      data: { user: userData, boards, columns, cards, activeBoardId, mutationError: null }
-                    }
-                  })
-                })
-                .catch((e: unknown) => {
-                  set({ state: { tag: 'error', error: { code: 'LOAD_FAILED', message: e instanceof Error ? e.message : 'Failed to load data' } } })
-                })
+            console.log('[AUTH] SIGNED_IN', { prevUserId: prevUser?.id ?? null, newUserId: userData?.id ?? null })
+            // Match V1: only load if user changed
+            if (userData != null && prevUser?.id !== userData.id) {
+              loadUserData(userData)
             }
             break
 
           case 'SIGNED_OUT':
-            console.log('[AUTH] SIGNED_OUT')
+            console.log('[AUTH] SIGNED_OUT', { prevUserId: prevUser?.id ?? null })
             set({ state: { tag: 'unauthenticated' } })
             break
 
           case 'TOKEN_REFRESHED':
             console.log('[AUTH] TOKEN_REFRESHED', { userId: userData?.id ?? null })
+            // No action - Supabase handles tokens internally
             break
 
           case 'USER_UPDATED':
@@ -201,11 +198,12 @@ const useAppStoreV2 = create<Store>((set, get) => {
     },
 
     signIn: () => {
-      set({ state: { tag: 'authenticating' } })
+      // No state change - page redirects to OAuth provider (like V1)
       api.signInWithGitHub()
         .catch((e: unknown) => {
           console.error('[AUTH] signIn failed', e)
-          set({ state: { tag: 'error', error: { code: 'SIGN_IN_FAILED', message: e instanceof Error ? e.message : 'Sign in failed' } } })
+          // Can't set mutation error since we might not be in ready state
+          // Error will show in console, user can retry
         })
     },
 
@@ -379,10 +377,15 @@ const useAppStoreV2 = create<Store>((set, get) => {
     clearMutationError: () => {
       updateData(() => ({ mutationError: null }))
     },
+
+    reset: () => {
+      updateData(() => ({ boards: {}, columns: {}, cards: {}, activeBoardId: null }))
+      persist(() => api.resetAll())
+    },
   }
 })
 
 // --- Exports ---
 
 export { useAppStoreV2 }
-export type { AppState, ReadyData, AuthUser, AppError, MutationError }
+export type { AppState, ReadyData, AuthUser, MutationError }

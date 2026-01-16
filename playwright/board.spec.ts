@@ -21,7 +21,7 @@ test("board CRUD", async ({ page }) => {
 
   // Rename board
   await page.getByRole("button", { name: "✎" }).click();
-  await page.getByRole("textbox").fill("Renamed Board");
+  await page.getByTestId("edit-board-input").fill("Renamed Board");
   await page.keyboard.press("Enter");
 
   await expect(page.locator("select option:checked")).toHaveText("Renamed Board");
