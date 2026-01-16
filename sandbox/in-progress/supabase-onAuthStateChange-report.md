@@ -382,7 +382,7 @@ Location: `https://github.com/supabase/supabase/tree/master/examples`
 
 ---
 
-## References
+## References (None have concrete examples which use callback)
 
 1. [Supabase JS Reference - onAuthStateChange](https://supabase.com/docs/reference/javascript/auth-onauthstatechange)
 2. [GitHub gotrue-js types.ts](https://github.com/supabase/gotrue-js/blob/master/src/lib/types.ts)
